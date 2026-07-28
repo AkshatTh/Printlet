@@ -72,21 +72,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Delete file from Supabase Storage to free up space
-    const { error: deleteError } = await supabaseAdmin.storage
-      .from('print-jobs')
-      .remove([order.file_url]);
+    // Delete all files in multi-file job from Supabase Storage to free up space
+    const fileKeys = (order.file_url || '').split(',').map((s: string) => s.trim()).filter(Boolean);
 
-    if (deleteError) {
-      console.error('Failed to delete file from storage:', deleteError);
-      // Don't fail the request, just log the error
-      // The order is still marked as PRINTED
+    if (fileKeys.length > 0) {
+      const { error: deleteError } = await supabaseAdmin.storage
+        .from('print-jobs')
+        .remove(fileKeys);
+
+      if (deleteError) {
+        console.error('Failed to delete files from storage:', deleteError);
+      }
     }
 
     return NextResponse.json({
       success: true,
       orderId,
-      message: 'Order marked as printed and file cleaned up'
+      message: 'Order marked as printed and files cleaned up'
     });
 
   } catch (error) {

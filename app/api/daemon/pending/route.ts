@@ -22,11 +22,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all PAID orders
-    const { data: orders, error } = await supabaseAdmin
+    // Fetch all PAID orders (resilient to schema status fallback)
+    const { data: ordersData, error } = await supabaseAdmin
       .from('orders')
       .select('*')
-      .eq('payment_status', 'PAID')
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -37,17 +36,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate signed URLs for each file
+    const allOrders = ordersData || [];
+    const pendingOrders = allOrders.filter(
+      o => o.status === 'PAID' || o.payment_status === 'PAID'
+    );
+
+    // Generate signed URLs for each file path (handles single and multi-file jobs)
     const ordersWithUrls = await Promise.all(
-      orders.map(async (order) => {
-        const { data: signedUrlData } = await supabaseAdmin.storage
-          .from('print-jobs')
-          .createSignedUrl(order.file_url, 3600); // 1 hour expiry
+      pendingOrders.map(async (order) => {
+        const rawPaths = (order.file_url || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+        
+        const signedUrls: string[] = [];
+        for (const path of rawPaths) {
+          const { data: signedUrlData, error: signError } = await supabaseAdmin.storage
+            .from('print-jobs')
+            .createSignedUrl(path, 3600); // 1 hour expiry
+
+          if (signedUrlData?.signedUrl) {
+            signedUrls.push(signedUrlData.signedUrl);
+          } else {
+            console.error('Failed to create signed URL for path:', path, signError);
+          }
+        }
 
         return {
           id: order.id,
-          file_url: signedUrlData?.signedUrl || null,
-          filename: order.file_url,
+          file_url: signedUrls.join(','),
+          filename: order.file_name || order.file_url,
           page_count: order.page_count,
           requires_staple: order.requires_staple,
           total_amount: order.total_amount,

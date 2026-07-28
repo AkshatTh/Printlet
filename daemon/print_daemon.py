@@ -4,6 +4,7 @@ import time
 import tempfile
 import subprocess
 import json
+import ssl
 
 # Fallback for HTTP requests (supports both requests library and Python's built-in urllib)
 try:
@@ -34,55 +35,82 @@ def log(message):
 def http_get_json(url, headers):
     """Perform HTTP GET returning JSON (works with requests or built-in urllib)"""
     if USE_REQUESTS:
-        response = requests.get(url, headers=headers, timeout=30)
-        if response.status_code == 401:
-            return 401, None
-        if response.status_code != 200:
-            return response.status_code, None
-        return 200, response.json()
-    else:
-        req = urllib.request.Request(url, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 401:
+                return 401, None
+            if response.status_code != 200:
+                return response.status_code, None
+            return 200, response.json()
+        except Exception as e:
+            log("HTTP GET exception: {0}".format(e))
+            return 500, None
+    else:
+        try:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 return 200, data
         except urllib.error.HTTPError as e:
             return e.code, None
-        except Exception:
+        except Exception as e:
+            log("HTTP GET exception: {0}".format(e))
             return 500, None
 
 def http_download_file(url, temp_path):
     """Download file from URL to disk (works with requests or built-in urllib)"""
     if USE_REQUESTS:
-        response = requests.get(url, timeout=60)
-        if response.status_code != 200:
-            return False, len(response.content) if response.content else 0
-        with open(temp_path, 'wb') as f:
-            f.write(response.content)
-        return True, len(response.content)
+        try:
+            response = requests.get(url, timeout=60)
+            if response.status_code != 200:
+                log("Download failed with HTTP status {0}".format(response.status_code))
+                return False, 0
+            with open(temp_path, 'wb') as f:
+                f.write(response.content)
+            return True, len(response.content)
+        except Exception as e:
+            log("Download exception (requests): {0}".format(e))
+            return False, 0
     else:
         try:
-            with urllib.request.urlopen(url, timeout=60) as resp:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
                 content = resp.read()
                 with open(temp_path, 'wb') as f:
                     f.write(content)
                 return True, len(content)
-        except Exception:
+        except Exception as e:
+            log("Download exception (urllib): {0}".format(e))
             return False, 0
 
 def http_post_json(url, headers, payload):
     """Perform HTTP POST with JSON body"""
     if USE_REQUESTS:
-        response = requests.post(url, headers=headers, json=payload, timeout=30)
-        return response.status_code == 200
-    else:
-        data = json.dumps(payload).encode('utf-8')
-        headers['Content-Type'] = 'application/json'
-        req = urllib.request.Request(url, data=data, headers=headers, method='POST')
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            return response.status_code == 200
+        except Exception as e:
+            log("HTTP POST exception: {0}".format(e))
+            return False
+    else:
+        try:
+            data = json.dumps(payload).encode('utf-8')
+            headers['Content-Type'] = 'application/json'
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+            with urllib.request.urlopen(req, timeout=30, context=ctx) as resp:
                 return resp.status == 200
-        except Exception:
+        except Exception as e:
+            log("HTTP POST exception: {0}".format(e))
             return False
 
 def get_pending_orders():
@@ -111,7 +139,8 @@ def get_pending_orders():
 def download_file(url, filename):
     """Download file from signed URL to temp directory"""
     try:
-        temp_path = os.path.join(TEMP_DIR, "print_{0}".format(filename))
+        clean_fname = os.path.basename(str(filename or 'file')).replace(' ', '_')
+        temp_path = os.path.join(TEMP_DIR, "print_{0}".format(clean_fname))
         success, bytes_len = http_download_file(url, temp_path)
 
         if not success:
@@ -128,7 +157,6 @@ def download_file(url, filename):
 def print_file_windows(file_path):
     """Print file on Windows using default printer"""
     try:
-        # Check for creationflags attribute in subprocess (added in Python 3.7)
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
 
         # Method 1: Try using Adobe Reader if available
@@ -147,7 +175,7 @@ def print_file_windows(file_path):
                         check=True,
                         creationflags=create_no_window
                     )
-                    time.sleep(3)  # Wait for print spooler
+                    time.sleep(3)
                     return True
 
         # Method 2: Try using SumatraPDF (best for silent printing)
@@ -171,7 +199,7 @@ def print_file_windows(file_path):
                         check=True,
                         creationflags=create_no_window
                     )
-                    time.sleep(2)  # Wait for print spooler
+                    time.sleep(2)
                     return True
             except Exception as e:
                 log("SumatraPDF print failed: {0}".format(e))
@@ -240,14 +268,18 @@ def cleanup_temp_file(file_path):
         log("WARNING: Failed to delete temp file - {0}".format(e))
 
 def process_order(order):
-    """Process a single print order (handles single and multi-file jobs)"""
-    order_id = order['id']
-    raw_urls = order['file_url']
-    raw_filenames = order.get('filename') or order['file_url']
-    page_count = order['page_count']
+    """Process a single print order (safely guards against None values)"""
+    order_id = order.get('id', 'unknown')
+    raw_urls = order.get('file_url') or ''
+    raw_filenames = order.get('filename') or order.get('file_url') or ''
+    page_count = order.get('page_count', 1)
 
-    file_urls = [u.strip() for u in raw_urls.split(',') if u.strip()]
-    filenames = [f.strip() for f in raw_filenames.split(',') if f.strip()]
+    file_urls = [u.strip() for u in str(raw_urls).split(',') if u.strip()]
+    filenames = [f.strip() for f in str(raw_filenames).split(',') if f.strip()]
+
+    if len(file_urls) == 0:
+        log("ERROR: Order {0} has no valid file URLs to download".format(order_id))
+        return False
 
     if len(filenames) < len(file_urls):
         filenames = filenames + ["file_{0}.pdf".format(i) for i in range(len(filenames), len(file_urls))]
@@ -263,6 +295,7 @@ def process_order(order):
             temp_path = download_file(url, fname)
             if not temp_path:
                 all_printed_successfully = False
+                log("ERROR: Download failed for file {0}".format(fname))
                 break
             
             temp_files.append(temp_path)
@@ -317,7 +350,7 @@ def main():
                         try:
                             process_order(order)
                         except Exception as e:
-                            log("ERROR: Failed to process order {0}: {1}".format(order['id'], e))
+                            log("ERROR: Failed to process order {0}: {1}".format(order.get('id', 'unknown'), e))
                             continue
                 else:
                     log("No pending orders")
