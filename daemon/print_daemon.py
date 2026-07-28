@@ -180,7 +180,7 @@ def print_file_windows(file_path):
             log("ERROR: File does not exist or is 0 bytes: {0}".format(abs_file_path))
             return False
 
-        # Method 1: Check for SumatraPDF (Prints both PDFs and Images with 100% fidelity)
+        # Method 1: Check for SumatraPDF (Prints PDFs and Images with 100% fidelity)
         sumatra_paths = [
             "SumatraPDF.exe",
             os.path.join(os.path.dirname(__file__), "SumatraPDF.exe"),
@@ -195,13 +195,48 @@ def print_file_windows(file_path):
                 sumatra_path = path
                 break
 
-        if sumatra_path:
+        if sumatra_path and not file_lower.endswith(('.docx', '.doc')):
             log("Printing with SumatraPDF: {0}".format(abs_file_path))
             sub_run([sumatra_path, "-print-to-default", "-silent", abs_file_path], creationflags=create_no_window)
             time.sleep(4)
             return True
 
-        # Method 2: Image Files (.jpg, .jpeg, .png, .bmp) using MSPaint (Built-in on Windows 7/8/10/11)
+        # Method 2: DOCX / DOC Files (.docx, .doc) with embedded images
+        if file_lower.endswith(('.docx', '.doc')):
+            # Try MS Word via PowerShell COM Automation (Renders full text + embedded images)
+            log("Printing DOCX with MS Word COM Engine: {0}".format(abs_file_path))
+            try:
+                ps_word = (
+                    "$word = New-Object -ComObject Word.Application; "
+                    "$word.Visible = $false; "
+                    "$doc = $word.Documents.Open('{0}'); "
+                    "$doc.PrintOut(); "
+                    "Start-Sleep -s 4; "
+                    "$doc.Close($false); "
+                    "$word.Quit();"
+                ).format(abs_file_path.replace('\\', '\\\\'))
+                
+                cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_word]
+                res = sub_run(cmd, creationflags=create_no_window)
+                if res:
+                    time.sleep(4)
+                    return True
+            except Exception as e:
+                log("MS Word COM print failed: {0}".format(e))
+
+            # Try LibreOffice if installed
+            libre_paths = [
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+            ]
+            for lpath in libre_paths:
+                if os.path.exists(lpath):
+                    log("Printing DOCX with LibreOffice: {0}".format(abs_file_path))
+                    sub_run([lpath, "--headless", "-pt", "default", abs_file_path], creationflags=create_no_window)
+                    time.sleep(4)
+                    return True
+
+        # Method 3: Image Files (.jpg, .jpeg, .png, .bmp) using MSPaint
         if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
             log("Printing image with MSPaint (/p): {0}".format(abs_file_path))
             try:
@@ -211,16 +246,7 @@ def print_file_windows(file_path):
             except Exception as e:
                 log("MSPaint print failed: {0}".format(e))
 
-            log("Printing image with Windows Shell startfile: {0}".format(abs_file_path))
-            try:
-                if hasattr(os, 'startfile'):
-                    os.startfile(abs_file_path, "print")
-                    time.sleep(5)
-                    return True
-            except Exception as e:
-                log("Shell image print failed: {0}".format(e))
-
-        # Method 3: PDF Files using Adobe Reader
+        # Method 4: PDF Files using Adobe Reader
         if file_lower.endswith('.pdf'):
             adobe_paths = [
                 r"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe",
@@ -234,14 +260,14 @@ def print_file_windows(file_path):
                     time.sleep(4)
                     return True
 
-        # Method 4: Fallback Shell Startfile for all other formats
+        # Method 5: Fallback Shell Startfile for all other formats
         log("Printing with Windows Shell startfile fallback: {0}".format(abs_file_path))
         if hasattr(os, 'startfile'):
             os.startfile(abs_file_path, "print")
             time.sleep(5)
             return True
 
-        log("ERROR: No print engine found. Please download SumatraPDF.exe into daemon folder.")
+        log("ERROR: No print engine found. Please install MS Word, LibreOffice, or SumatraPDF.")
         return False
 
     except Exception as e:
