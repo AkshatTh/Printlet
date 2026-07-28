@@ -170,22 +170,23 @@ def download_file(url, filename):
         return None
 
 def print_file_windows(file_path):
-    """Print file on Windows (PDFs, Images, DOCX) ensuring non-blank page rendering"""
+    """Print file on Windows (PDFs, Images, DOCX) compatible with Windows 7+"""
     try:
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
         abs_file_path = os.path.abspath(file_path)
         file_lower = abs_file_path.lower()
 
         if not os.path.exists(abs_file_path) or os.path.getsize(abs_file_path) == 0:
-            log("ERROR: Downloaded file does not exist or is 0 bytes: {0}".format(abs_file_path))
+            log("ERROR: File does not exist or is 0 bytes: {0}".format(abs_file_path))
             return False
 
-        # Method 1: Try SumatraPDF if installed (Gold Standard for Silent PDF & Image Printing)
+        # Method 1: Check for SumatraPDF (Prints both PDFs and Images with 100% fidelity)
         sumatra_paths = [
-            r"SumatraPDF.exe",
+            "SumatraPDF.exe",
+            os.path.join(os.path.dirname(__file__), "SumatraPDF.exe"),
+            os.path.join(os.getcwd(), "SumatraPDF.exe"),
             r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
             r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
-            os.path.join(os.path.dirname(__file__), "SumatraPDF.exe"),
             os.path.join(TEMP_DIR, "SumatraPDF.exe")
         ]
         sumatra_path = None
@@ -200,36 +201,26 @@ def print_file_windows(file_path):
             time.sleep(4)
             return True
 
-        # Method 2: PowerShell GDI+ Native Image Printer (.jpg, .jpeg, .png, .bmp)
+        # Method 2: Image Files (.jpg, .jpeg, .png, .bmp) using MSPaint (Built-in on Windows 7/8/10/11)
         if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-            log("Printing image with PowerShell GDI+ Engine: {0}".format(abs_file_path))
+            log("Printing image with MSPaint (/p): {0}".format(abs_file_path))
             try:
-                ps_script = (
-                    "[reflection.assembly]::LoadWithPartialName('System.Drawing'); "
-                    "$p = New-Object System.Drawing.Printing.PrintDocument; "
-                    "$p.DocumentName = 'PrintJob'; "
-                    "$img = [System.Drawing.Image]::FromFile('{0}'); "
-                    "$p.add_PrintPage({{ param($s, $e) "
-                    "  $rect = $e.MarginBounds; "
-                    "  $ratio = [Math]::Min($rect.Width / $img.Width, $rect.Height / $img.Height); "
-                    "  $w = [int]($img.Width * $ratio); "
-                    "  $h = [int]($img.Height * $ratio); "
-                    "  $x = $rect.X + [int](($rect.Width - $w) / 2); "
-                    "  $y = $rect.Y + [int](($rect.Height - $h) / 2); "
-                    "  $e.Graphics.DrawImage($img, $x, $y, $w, $h); "
-                    "}}); "
-                    "$p.Print(); "
-                    "$img.Dispose();"
-                ).format(abs_file_path.replace('\\', '\\\\'))
-
-                cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script]
-                sub_run(cmd, creationflags=create_no_window)
+                sub_run(["mspaint.exe", "/p", abs_file_path], creationflags=create_no_window)
                 time.sleep(4)
                 return True
             except Exception as e:
-                log("PowerShell GDI+ image print failed: {0}".format(e))
+                log("MSPaint print failed: {0}".format(e))
 
-        # Method 3: Try Adobe Reader for PDFs if installed
+            log("Printing image with Windows Shell startfile: {0}".format(abs_file_path))
+            try:
+                if hasattr(os, 'startfile'):
+                    os.startfile(abs_file_path, "print")
+                    time.sleep(5)
+                    return True
+            except Exception as e:
+                log("Shell image print failed: {0}".format(e))
+
+        # Method 3: PDF Files using Adobe Reader
         if file_lower.endswith('.pdf'):
             adobe_paths = [
                 r"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe",
@@ -243,24 +234,14 @@ def print_file_windows(file_path):
                     time.sleep(4)
                     return True
 
-        # Method 4: MSPaint for Images
-        if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-            log("Printing image with MSPaint: {0}".format(abs_file_path))
-            try:
-                sub_run(["mspaint.exe", "/p", abs_file_path], creationflags=create_no_window)
-                time.sleep(4)
-                return True
-            except Exception as e:
-                log("MSPaint print failed: {0}".format(e))
-
-        # Method 5: Windows Shell startfile
-        log("Printing with Windows Shell startfile: {0}".format(abs_file_path))
+        # Method 4: Fallback Shell Startfile for all other formats
+        log("Printing with Windows Shell startfile fallback: {0}".format(abs_file_path))
         if hasattr(os, 'startfile'):
             os.startfile(abs_file_path, "print")
             time.sleep(5)
             return True
 
-        log("ERROR: No print handler available.")
+        log("ERROR: No print engine found. Please download SumatraPDF.exe into daemon folder.")
         return False
 
     except Exception as e:
