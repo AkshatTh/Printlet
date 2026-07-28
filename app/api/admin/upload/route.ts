@@ -141,7 +141,8 @@ export async function POST(request: NextRequest) {
     const fileNameJoined = originalFileNames.join(', ');
     const pickupTime = calculatePickupTime();
 
-    // Directly insert order as PAID (free admin print)
+    // Directly insert order as PAID (free admin print).
+    // Use total_amount: 1 (1 paise, ₹0.01) to satisfy CHECK (total_amount > 0) database constraint.
     const { data: order, error: dbError } = await supabaseAdmin
       .from('orders')
       .insert({
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
         file_name: fileNameJoined,
         page_count: totalPageCount,
         requires_staple: requiresStaple,
-        total_amount: 0, // Free admin order
+        total_amount: 1, // 1 paise (satisfies total_amount > 0 DB check constraint)
         status: 'PAID', // Directly PAID so daemon picks it up immediately
         payment_status: 'PAID',
         pickup_time: pickupTime.toISOString(),
