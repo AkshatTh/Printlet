@@ -158,8 +158,8 @@ def download_file(url, filename):
         temp_path = os.path.join(TEMP_DIR, "print_{0}".format(clean_fname))
         success, bytes_len = http_download_file(url, temp_path)
 
-        if not success:
-            log("ERROR: Failed to download file {0}".format(filename))
+        if not success or bytes_len == 0:
+            log("ERROR: Failed to download file {0} (0 bytes)".format(filename))
             return None
 
         log("Downloaded: {0} ({1} bytes)".format(filename, bytes_len))
@@ -170,15 +170,23 @@ def download_file(url, filename):
         return None
 
 def print_file_windows(file_path):
-    """Print file on Windows (PDFs, Images, DOCX) compatible with Python 3.4+"""
+    """Print file on Windows (PDFs, Images, DOCX) ensuring non-blank page rendering"""
     try:
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
-        file_lower = file_path.lower()
+        abs_file_path = os.path.abspath(file_path)
+        file_lower = abs_file_path.lower()
 
-        # Method 1: Try SumatraPDF if installed (best for silent background printing of PDFs & Images)
+        if not os.path.exists(abs_file_path) or os.path.getsize(abs_file_path) == 0:
+            log("ERROR: Downloaded file does not exist or is 0 bytes: {0}".format(abs_file_path))
+            return False
+
+        # Method 1: Try SumatraPDF if installed (Gold Standard for Silent PDF & Image Printing)
         sumatra_paths = [
+            r"SumatraPDF.exe",
             r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
             r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
+            os.path.join(os.path.dirname(__file__), "SumatraPDF.exe"),
+            os.path.join(TEMP_DIR, "SumatraPDF.exe")
         ]
         sumatra_path = None
         for path in sumatra_paths:
@@ -187,20 +195,39 @@ def print_file_windows(file_path):
                 break
 
         if sumatra_path:
-            log("Printing with SumatraPDF: {0}".format(file_path))
-            sub_run([sumatra_path, "-print-to-default", "-silent", file_path], creationflags=create_no_window)
-            time.sleep(3)
+            log("Printing with SumatraPDF: {0}".format(abs_file_path))
+            sub_run([sumatra_path, "-print-to-default", "-silent", abs_file_path], creationflags=create_no_window)
+            time.sleep(4)
             return True
 
-        # Method 2: For Image files (.jpg, .jpeg, .png, .bmp), try MSPaint print
+        # Method 2: PowerShell GDI+ Native Image Printer (.jpg, .jpeg, .png, .bmp)
         if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
-            log("Printing image with MSPaint: {0}".format(file_path))
+            log("Printing image with PowerShell GDI+ Engine: {0}".format(abs_file_path))
             try:
-                sub_run(["mspaint.exe", "/p", file_path], creationflags=create_no_window)
-                time.sleep(3)
+                ps_script = (
+                    "[reflection.assembly]::LoadWithPartialName('System.Drawing'); "
+                    "$p = New-Object System.Drawing.Printing.PrintDocument; "
+                    "$p.DocumentName = 'PrintJob'; "
+                    "$img = [System.Drawing.Image]::FromFile('{0}'); "
+                    "$p.add_PrintPage({{ param($s, $e) "
+                    "  $rect = $e.MarginBounds; "
+                    "  $ratio = [Math]::Min($rect.Width / $img.Width, $rect.Height / $img.Height); "
+                    "  $w = [int]($img.Width * $ratio); "
+                    "  $h = [int]($img.Height * $ratio); "
+                    "  $x = $rect.X + [int](($rect.Width - $w) / 2); "
+                    "  $y = $rect.Y + [int](($rect.Height - $h) / 2); "
+                    "  $e.Graphics.DrawImage($img, $x, $y, $w, $h); "
+                    "}}); "
+                    "$p.Print(); "
+                    "$img.Dispose();"
+                ).format(abs_file_path.replace('\\', '\\\\'))
+
+                cmd = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script]
+                sub_run(cmd, creationflags=create_no_window)
+                time.sleep(4)
                 return True
             except Exception as e:
-                log("MSPaint print failed: {0}".format(e))
+                log("PowerShell GDI+ image print failed: {0}".format(e))
 
         # Method 3: Try Adobe Reader for PDFs if installed
         if file_lower.endswith('.pdf'):
@@ -211,22 +238,29 @@ def print_file_windows(file_path):
             ]
             for adobe_path in adobe_paths:
                 if os.path.exists(adobe_path):
-                    log("Printing with Adobe Reader: {0}".format(file_path))
-                    sub_run([adobe_path, "/t", file_path], creationflags=create_no_window)
-                    time.sleep(3)
+                    log("Printing PDF with Adobe Reader: {0}".format(abs_file_path))
+                    sub_run([adobe_path, "/t", abs_file_path], creationflags=create_no_window)
+                    time.sleep(4)
                     return True
 
-        # Method 4: Built-in Windows shell print verb (works for Images, PDFs, text, etc. in Python 3.4+)
-        log("Printing with Windows Shell print verb: {0}".format(file_path))
-        try:
-            if hasattr(os, 'startfile'):
-                os.startfile(file_path, "print")
+        # Method 4: MSPaint for Images
+        if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+            log("Printing image with MSPaint: {0}".format(abs_file_path))
+            try:
+                sub_run(["mspaint.exe", "/p", abs_file_path], creationflags=create_no_window)
                 time.sleep(4)
                 return True
-        except Exception as e:
-            log("Windows Shell print verb failed: {0}".format(e))
+            except Exception as e:
+                log("MSPaint print failed: {0}".format(e))
 
-        log("ERROR: No PDF/Image viewer found. Please install SumatraPDF.")
+        # Method 5: Windows Shell startfile
+        log("Printing with Windows Shell startfile: {0}".format(abs_file_path))
+        if hasattr(os, 'startfile'):
+            os.startfile(abs_file_path, "print")
+            time.sleep(5)
+            return True
+
+        log("ERROR: No print handler available.")
         return False
 
     except Exception as e:
