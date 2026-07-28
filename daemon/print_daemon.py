@@ -47,6 +47,21 @@ def sub_run(cmd, creationflags=0):
         log("Subprocess error: {0}".format(e))
         return None
 
+def get_default_printer_name():
+    """Detect default printer name on Windows"""
+    try:
+        create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+        cmd = ["powershell", "-NoProfile", "-Command", "(Get-WmiObject -Class Win32_Printer | Where-Object {$_.Default -eq $true}).Name"]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=create_no_window)
+        out, _ = proc.communicate()
+        if out:
+            name = out.decode('utf-8', errors='ignore').strip()
+            if name:
+                return name
+    except Exception:
+        pass
+    return "Default Windows Printer"
+
 def find_sumatra_pdf():
     """Find any SumatraPDF executable (handles SumatraPDF-3.5.2-64.exe, SumatraPDF.exe, etc.)"""
     search_dirs = [
@@ -212,7 +227,6 @@ def print_file_windows(file_path):
 
         # Method 2: DOCX / DOC Files (.docx, .doc) with embedded images
         if file_lower.endswith(('.docx', '.doc')):
-            # Try MS Word via PowerShell COM Automation (Renders full text + embedded images)
             log("Printing DOCX with MS Word COM Engine: {0}".format(abs_file_path))
             try:
                 ps_word = (
@@ -233,7 +247,6 @@ def print_file_windows(file_path):
             except Exception as e:
                 log("MS Word COM print failed: {0}".format(e))
 
-            # Try LibreOffice if installed
             libre_paths = [
                 r"C:\Program Files\LibreOffice\program\soffice.exe",
                 r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
@@ -381,6 +394,9 @@ def main():
     log("Poll Interval: {0} seconds".format(POLL_INTERVAL))
     log("Temp Directory: {0}".format(TEMP_DIR))
     
+    default_printer = get_default_printer_name()
+    log("Default Windows Printer: {0}".format(default_printer))
+
     sumatra_found = find_sumatra_pdf()
     if sumatra_found:
         log("SumatraPDF Detected: {0}".format(sumatra_found))
