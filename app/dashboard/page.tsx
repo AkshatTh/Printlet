@@ -55,15 +55,28 @@ export default function DashboardPage() {
   const [requiresStaple, setRequiresStaple] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState<{
+    orderId: string;
+    fileNames: string;
+    pageCount: number;
+    amount: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
 
+  // Helper to ensure body scrolling is never locked after Razorpay modal closes
+  const unlockBodyScroll = () => {
+    document.body.style.overflow = 'unset';
+    document.body.style.position = 'relative';
+    document.documentElement.style.overflow = 'unset';
+  };
+
   useEffect(() => {
     loadData();
+    return () => unlockBodyScroll();
   }, []);
 
   const loadData = async () => {
@@ -220,7 +233,13 @@ export default function DashboardPage() {
         name: 'PrintHub',
         description: `Print ${uploadResponse.pageCount} total page(s) (${uploadResponse.fileCount} file(s))`,
         order_id: checkoutData.razorpayOrderId,
+        modal: {
+          ondismiss: function () {
+            unlockBodyScroll();
+          }
+        },
         handler: async function (response: any) {
+          unlockBodyScroll();
           try {
             const verifyResponse = await fetch('/api/verify', {
               method: 'POST',
@@ -236,7 +255,12 @@ export default function DashboardPage() {
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              setSuccess(`Payment successful! Order placed.`);
+              setPaymentSuccess({
+                orderId: uploadResponse.orderId,
+                fileNames: uploadResponse.fileNames,
+                pageCount: uploadResponse.pageCount,
+                amount: uploadResponse.totalAmount,
+              });
               setSelectedFiles([]);
               setUploadResponse(null);
               setRequiresStaple(false);
@@ -246,6 +270,8 @@ export default function DashboardPage() {
             }
           } catch (err) {
             setError('Payment verification failed');
+          } finally {
+            unlockBodyScroll();
           }
         },
         theme: {
@@ -256,8 +282,18 @@ export default function DashboardPage() {
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (err) {
+      unlockBodyScroll();
       setError(err instanceof Error ? err.message : 'Payment failed');
     }
+  };
+
+  const resetForm = () => {
+    unlockBodyScroll();
+    setPaymentSuccess(null);
+    setUploadResponse(null);
+    setSelectedFiles([]);
+    setRequiresStaple(false);
+    setError(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -319,24 +355,69 @@ export default function DashboardPage() {
 
           {/* Multi-File Upload Section */}
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-6">
-            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
-              <span>📂 Upload Documents to Print</span>
-            </h2>
-
             {error && (
               <div className="p-4 bg-red-100 text-red-800 rounded-2xl text-sm border border-red-200 font-bold">
                 {error}
               </div>
             )}
 
-            {success && (
-              <div className="p-4 bg-emerald-100 text-emerald-800 rounded-2xl text-sm border border-emerald-200 font-bold">
-                {success}
-              </div>
-            )}
+            {/* SUCCESS SCREEN STATE AFTER PAYMENT */}
+            {paymentSuccess ? (
+              <div className="bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-amber-500/10 p-8 rounded-3xl border border-emerald-300 text-center space-y-6">
+                <div className="w-20 h-20 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto text-4xl shadow-xl shadow-emerald-500/30 animate-bounce">
+                  🎉
+                </div>
 
-            {!uploadResponse ? (
+                <div>
+                  <h2 className="text-3xl font-black text-stone-900">Payment Successful & Order Placed!</h2>
+                  <p className="text-stone-600 font-bold text-sm mt-1">
+                    Your document has been sent directly to the local dorm print queue.
+                  </p>
+                </div>
+
+                <div className="bg-white/90 p-5 rounded-2xl border border-emerald-200 text-left max-w-lg mx-auto space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-stone-500 font-medium">Document(s):</span>
+                    <span className="font-bold text-stone-900">{paymentSuccess.fileNames}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-500 font-medium">Total Pages:</span>
+                    <span className="font-bold text-stone-900">{paymentSuccess.pageCount} pages</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-stone-500 font-medium">Amount Paid:</span>
+                    <span className="font-black text-emerald-600 text-base">₹{paymentSuccess.amount.toFixed(2)}</span>
+                  </div>
+                  <div className="pt-2 border-t border-stone-200 text-xs font-bold text-orange-800 flex items-center gap-1.5">
+                    <span>📍</span>
+                    <span>Ready for pickup tomorrow at 12:30 PM at the main cafeteria!</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
+                  <button
+                    onClick={resetForm}
+                    className="px-8 py-4 text-base font-black text-white bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 rounded-2xl shadow-lg shadow-orange-500/30 hover:scale-105 transition-all"
+                  >
+                    Print Another Document ✨
+                  </button>
+                  <button
+                    onClick={() => {
+                      resetForm();
+                      document.getElementById('order-history')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-8 py-4 text-base font-bold text-stone-800 bg-white rounded-2xl hover:bg-stone-100 transition-colors border border-stone-300"
+                  >
+                    View Order History ↓
+                  </button>
+                </div>
+              </div>
+            ) : !uploadResponse ? (
               <div className="space-y-6">
+                <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
+                  <span>📂 Upload Documents to Print</span>
+                </h2>
+
                 {/* Drag and Drop Zone */}
                 <div
                   onDragEnter={handleDrag}
@@ -457,7 +538,7 @@ export default function DashboardPage() {
                     Pay ₹{uploadResponse.totalAmount.toFixed(2)} via UPI / Card ✨
                   </button>
                   <button
-                    onClick={() => setUploadResponse(null)}
+                    onClick={resetForm}
                     className="px-6 py-4 text-sm font-bold text-stone-700 bg-white rounded-2xl hover:bg-stone-100 transition-colors border border-stone-200"
                   >
                     Cancel
@@ -468,7 +549,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Past Orders Section */}
-          <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl shadow-orange-500/10 border border-orange-200">
+          <div id="order-history" className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl shadow-orange-500/10 border border-orange-200">
             <h2 className="text-2xl font-black text-stone-900 mb-6">
               Your Order History
             </h2>
