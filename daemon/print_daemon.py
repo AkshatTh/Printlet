@@ -83,6 +83,71 @@ def find_sumatra_pdf():
                 pass
     return None
 
+def convert_image_to_pdf(image_path, pdf_path):
+    """Convert JPG/PNG image to PDF (Pillow if available, or pure-Python JPEG wrapper)"""
+    # Attempt 1: Try Pillow if installed
+    try:
+        from PIL import Image
+        img = Image.open(image_path)
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        img.save(pdf_path, "PDF", resolution=100.0)
+        return True
+    except Exception:
+        pass
+
+    # Attempt 2: Pure Python JPEG-to-PDF converter (Zero external dependencies!)
+    try:
+        with open(image_path, 'rb') as f:
+            jpg_data = f.read()
+
+        # Extract JPEG width & height from SOF markers (0xFFC0 - 0xFFC3)
+        width, height = 612, 792
+        idx = 0
+        while idx < len(jpg_data) - 8:
+            if jpg_data[idx] == 0xFF and jpg_data[idx+1] in (0xC0, 0xC1, 0xC2, 0xC3):
+                height = (jpg_data[idx+5] << 8) + jpg_data[idx+6]
+                width = (jpg_data[idx+7] << 8) + jpg_data[idx+8]
+                break
+            idx += 1
+
+        # PDF page size: 8.5 x 11 inches in points (612 x 792)
+        page_w, page_h = 612, 792
+        scale = min(float(page_w) / width, float(page_h) / height)
+        draw_w = int(width * scale)
+        draw_h = int(height * scale)
+        x = int((page_w - draw_w) / 2)
+        y = int((page_h - draw_h) / 2)
+
+        pdf_header = (
+            "%PDF-1.3\n"
+            "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+            "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+            "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {0} {1}] /Contents 4 0 R /Resources << /XObject << /I1 5 0 R >> >> >>\nendobj\n"
+            "4 0 obj\n<< /Length {2} >>\nstream\n"
+            "q\n{3} 0 0 {4} {5} {6} cm\n/I1 Do\nQ\n"
+            "endstream\nendobj\n"
+            "5 0 obj\n<< /Type /XObject /Subtype /Image /Width {7} /Height {8} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length {9} >>\n"
+            "stream\n"
+        ).format(
+            page_w, page_h,
+            len("q\n{0} 0 0 {1} {2} {3} cm\n/I1 Do\nQ\n".format(draw_w, draw_h, x, y)),
+            draw_w, draw_h, x, y,
+            width, height, len(jpg_data)
+        )
+
+        pdf_footer = "\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n0\n%%EOF\n"
+
+        with open(pdf_path, 'wb') as f:
+            f.write(pdf_header.encode('latin1'))
+            f.write(jpg_data)
+            f.write(pdf_footer.encode('latin1'))
+
+        return True
+    except Exception as e:
+        log("JPEG to PDF conversion failed: {0}".format(e))
+        return False
+
 def http_get_json(url, headers):
     """Perform HTTP GET returning JSON (works with requests or built-in urllib)"""
     if USE_REQUESTS:
@@ -207,6 +272,7 @@ def download_file(url, filename):
 
 def print_file_windows(file_path):
     """Print file on Windows (PDFs, Images, DOCX) compatible with Windows 7+"""
+    temp_pdf_to_cleanup = None
     try:
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
         abs_file_path = os.path.abspath(file_path)
@@ -216,7 +282,16 @@ def print_file_windows(file_path):
             log("ERROR: File does not exist or is 0 bytes: {0}".format(abs_file_path))
             return False
 
-        # Method 1: Dynamic SumatraPDF search (Handles SumatraPDF-3.5.2-64.exe, SumatraPDF.exe, etc.)
+        # Convert image files (.jpg, .jpeg, .png, .bmp) to PDF for guaranteed silent printing
+        if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+            pdf_path = abs_file_path + ".pdf"
+            log("Converting image to PDF for silent print: {0}".format(os.path.basename(abs_file_path)))
+            if convert_image_to_pdf(abs_file_path, pdf_path):
+                abs_file_path = pdf_path
+                file_lower = abs_file_path.lower()
+                temp_pdf_to_cleanup = pdf_path
+
+        # Method 1: Dynamic SumatraPDF search (Prints PDFs & converted images natively!)
         sumatra_path = find_sumatra_pdf()
 
         if sumatra_path and not file_lower.endswith(('.docx', '.doc')):
@@ -258,7 +333,7 @@ def print_file_windows(file_path):
                     time.sleep(4)
                     return True
 
-        # Method 3: Image Files (.jpg, .jpeg, .png, .bmp) using MSPaint
+        # Method 3: Image Files fallback using MSPaint
         if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
             log("Printing image with MSPaint (/p): {0}".format(abs_file_path))
             try:
@@ -267,15 +342,6 @@ def print_file_windows(file_path):
                 return True
             except Exception as e:
                 log("MSPaint print failed: {0}".format(e))
-
-            log("Printing image with Windows Shell startfile: {0}".format(abs_file_path))
-            try:
-                if hasattr(os, 'startfile'):
-                    os.startfile(abs_file_path, "print")
-                    time.sleep(5)
-                    return True
-            except Exception as e:
-                log("Shell image print failed: {0}".format(e))
 
         # Method 4: PDF Files using Adobe Reader
         if file_lower.endswith('.pdf'):
@@ -304,6 +370,12 @@ def print_file_windows(file_path):
     except Exception as e:
         log("ERROR: Failed to print file - {0}".format(e))
         return False
+    finally:
+        if temp_pdf_to_cleanup and os.path.exists(temp_pdf_to_cleanup):
+            try:
+                os.remove(temp_pdf_to_cleanup)
+            except:
+                pass
 
 def mark_order_complete(order_id):
     """Mark order as printed and trigger file cleanup"""
