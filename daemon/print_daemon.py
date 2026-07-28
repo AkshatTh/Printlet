@@ -47,6 +47,27 @@ def sub_run(cmd, creationflags=0):
         log("Subprocess error: {0}".format(e))
         return None
 
+def find_sumatra_pdf():
+    """Find any SumatraPDF executable (handles SumatraPDF-3.5.2-64.exe, SumatraPDF.exe, etc.)"""
+    search_dirs = [
+        os.getcwd(),
+        os.path.dirname(__file__),
+        r"C:\Program Files\SumatraPDF",
+        r"C:\Program Files (x86)\SumatraPDF",
+        TEMP_DIR
+    ]
+    for sdir in search_dirs:
+        if sdir and os.path.exists(sdir):
+            try:
+                for fname in os.listdir(sdir):
+                    if fname.lower().startswith("sumatra") and fname.lower().endswith(".exe"):
+                        full_path = os.path.join(sdir, fname)
+                        if os.path.isfile(full_path):
+                            return full_path
+            except Exception:
+                pass
+    return None
+
 def http_get_json(url, headers):
     """Perform HTTP GET returning JSON (works with requests or built-in urllib)"""
     if USE_REQUESTS:
@@ -180,23 +201,11 @@ def print_file_windows(file_path):
             log("ERROR: File does not exist or is 0 bytes: {0}".format(abs_file_path))
             return False
 
-        # Method 1: Check for SumatraPDF (Prints PDFs and Images with 100% fidelity)
-        sumatra_paths = [
-            "SumatraPDF.exe",
-            os.path.join(os.path.dirname(__file__), "SumatraPDF.exe"),
-            os.path.join(os.getcwd(), "SumatraPDF.exe"),
-            r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
-            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
-            os.path.join(TEMP_DIR, "SumatraPDF.exe")
-        ]
-        sumatra_path = None
-        for path in sumatra_paths:
-            if os.path.exists(path):
-                sumatra_path = path
-                break
+        # Method 1: Dynamic SumatraPDF search (Handles SumatraPDF-3.5.2-64.exe, SumatraPDF.exe, etc.)
+        sumatra_path = find_sumatra_pdf()
 
         if sumatra_path and not file_lower.endswith(('.docx', '.doc')):
-            log("Printing with SumatraPDF: {0}".format(abs_file_path))
+            log("Printing with SumatraPDF ({0}): {1}".format(os.path.basename(sumatra_path), abs_file_path))
             sub_run([sumatra_path, "-print-to-default", "-silent", abs_file_path], creationflags=create_no_window)
             time.sleep(4)
             return True
@@ -246,6 +255,15 @@ def print_file_windows(file_path):
             except Exception as e:
                 log("MSPaint print failed: {0}".format(e))
 
+            log("Printing image with Windows Shell startfile: {0}".format(abs_file_path))
+            try:
+                if hasattr(os, 'startfile'):
+                    os.startfile(abs_file_path, "print")
+                    time.sleep(5)
+                    return True
+            except Exception as e:
+                log("Shell image print failed: {0}".format(e))
+
         # Method 4: PDF Files using Adobe Reader
         if file_lower.endswith('.pdf'):
             adobe_paths = [
@@ -267,7 +285,7 @@ def print_file_windows(file_path):
             time.sleep(5)
             return True
 
-        log("ERROR: No print engine found. Please install MS Word, LibreOffice, or SumatraPDF.")
+        log("ERROR: No print engine found.")
         return False
 
     except Exception as e:
@@ -362,6 +380,12 @@ def main():
     log("API Base URL: {0}".format(API_BASE_URL))
     log("Poll Interval: {0} seconds".format(POLL_INTERVAL))
     log("Temp Directory: {0}".format(TEMP_DIR))
+    
+    sumatra_found = find_sumatra_pdf()
+    if sumatra_found:
+        log("SumatraPDF Detected: {0}".format(sumatra_found))
+    else:
+        log("SumatraPDF: Not detected (Using Windows MSPaint/Native Print Fallback)")
     log("=" * 60)
 
     consecutive_errors = 0
