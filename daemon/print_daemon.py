@@ -32,6 +32,21 @@ def log(message):
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
     print("[{0}] {1}".format(timestamp, message))
 
+def sub_run(cmd, creationflags=0):
+    """Execute command compatible with Python 3.4 (no subprocess.run required)"""
+    if hasattr(subprocess, 'run'):
+        try:
+            return subprocess.run(cmd, check=False, creationflags=creationflags)
+        except Exception:
+            pass
+    try:
+        proc = subprocess.Popen(cmd, creationflags=creationflags)
+        proc.wait()
+        return proc
+    except Exception as e:
+        log("Subprocess error: {0}".format(e))
+        return None
+
 def http_get_json(url, headers):
     """Perform HTTP GET returning JSON (works with requests or built-in urllib)"""
     if USE_REQUESTS:
@@ -155,83 +170,63 @@ def download_file(url, filename):
         return None
 
 def print_file_windows(file_path):
-    """Print file on Windows using default printer"""
+    """Print file on Windows (PDFs, Images, DOCX) compatible with Python 3.4+"""
     try:
         create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+        file_lower = file_path.lower()
 
-        # Method 1: Try using Adobe Reader if available
-        if file_path.lower().endswith('.pdf'):
+        # Method 1: Try SumatraPDF if installed (best for silent background printing of PDFs & Images)
+        sumatra_paths = [
+            r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
+            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
+        ]
+        sumatra_path = None
+        for path in sumatra_paths:
+            if os.path.exists(path):
+                sumatra_path = path
+                break
+
+        if sumatra_path:
+            log("Printing with SumatraPDF: {0}".format(file_path))
+            sub_run([sumatra_path, "-print-to-default", "-silent", file_path], creationflags=create_no_window)
+            time.sleep(3)
+            return True
+
+        # Method 2: For Image files (.jpg, .jpeg, .png, .bmp), try MSPaint print
+        if file_lower.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+            log("Printing image with MSPaint: {0}".format(file_path))
+            try:
+                sub_run(["mspaint.exe", "/p", file_path], creationflags=create_no_window)
+                time.sleep(3)
+                return True
+            except Exception as e:
+                log("MSPaint print failed: {0}".format(e))
+
+        # Method 3: Try Adobe Reader for PDFs if installed
+        if file_lower.endswith('.pdf'):
             adobe_paths = [
                 r"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe",
                 r"C:\Program Files (x86)\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe",
                 r"C:\Program Files\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe",
             ]
-
             for adobe_path in adobe_paths:
                 if os.path.exists(adobe_path):
                     log("Printing with Adobe Reader: {0}".format(file_path))
-                    subprocess.run(
-                        [adobe_path, "/t", file_path],
-                        check=True,
-                        creationflags=create_no_window
-                    )
+                    sub_run([adobe_path, "/t", file_path], creationflags=create_no_window)
                     time.sleep(3)
                     return True
 
-        # Method 2: Try using SumatraPDF (best for silent printing)
-        if file_path.lower().endswith('.pdf'):
-            try:
-                sumatra_paths = [
-                    r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
-                    r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
-                ]
-
-                sumatra_path = None
-                for path in sumatra_paths:
-                    if os.path.exists(path):
-                        sumatra_path = path
-                        break
-
-                if sumatra_path:
-                    log("Printing with SumatraPDF: {0}".format(file_path))
-                    subprocess.run(
-                        [sumatra_path, "-print-to-default", "-silent", file_path],
-                        check=True,
-                        creationflags=create_no_window
-                    )
-                    time.sleep(2)
-                    return True
-            except Exception as e:
-                log("SumatraPDF print failed: {0}".format(e))
-
-        # Method 3: Use Windows Print API via batch script
-        log("Printing with Windows Print API: {0}".format(file_path))
-
+        # Method 4: Built-in Windows shell print verb (works for Images, PDFs, text, etc. in Python 3.4+)
+        log("Printing with Windows Shell print verb: {0}".format(file_path))
         try:
-            batch_path = os.path.join(TEMP_DIR, "print_job.bat")
-            with open(batch_path, 'w') as f:
-                f.write('@echo off\n')
-                f.write('echo Printing file...\n')
-                f.write('rundll32.exe C:\\Windows\\System32\\shimgvw.dll,ImageView_PrintTo /pt "{0}" "HP LaserJet 1020"\n'.format(file_path))
-
-            result = subprocess.run(
-                [batch_path],
-                check=False,
-                creationflags=create_no_window
-            )
-
-            try:
-                os.remove(batch_path)
-            except:
-                pass
-
-            if result.returncode == 0:
-                time.sleep(3)
+            if hasattr(os, 'startfile'):
+                os.startfile(file_path, "print")
+                time.sleep(4)
                 return True
         except Exception as e:
-            log("Batch print method failed: {0}".format(e))
+            log("Windows Shell print verb failed: {0}".format(e))
 
-        log("ERROR: No PDF viewer found. Please install SumatraPDF or Adobe Reader")
+        log("ERROR: No PDF/Image viewer found. Please install SumatraPDF.")
         return False
 
     except Exception as e:
