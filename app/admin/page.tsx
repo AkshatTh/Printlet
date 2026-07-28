@@ -105,19 +105,28 @@ export default function AdminPage() {
   };
 
   const markAsDelivered = async (orderId: string) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        status: 'DELIVERED',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderId);
+    if (!sessionToken) return;
 
-    if (!error) {
-      // Re-fetch all orders & stats from backend to update active & delivered queues cleanly
-      await checkAdminAndLoadOrders();
-    } else {
-      console.error('Failed to mark delivered:', error);
+    try {
+      const response = await fetch('/api/admin/deliver', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({ orderId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Re-fetch all orders & stats from backend to update active & delivered queues cleanly
+        await checkAdminAndLoadOrders();
+      } else {
+        alert(data.error || 'Failed to mark order as delivered');
+      }
+    } catch (err) {
+      console.error('Failed to mark delivered:', err);
     }
   };
 
