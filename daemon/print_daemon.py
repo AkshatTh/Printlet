@@ -1,11 +1,18 @@
 import os
 import sys
 import time
-import requests
 import tempfile
 import subprocess
-from pathlib import Path
-from typing import List, Dict, Optional
+import json
+
+# Fallback for HTTP requests (supports both requests library and Python's built-in urllib)
+try:
+    import requests
+    USE_REQUESTS = True
+except ImportError:
+    import urllib.request
+    import urllib.error
+    USE_REQUESTS = False
 
 # Configuration
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:3000')
@@ -19,67 +26,111 @@ if not DAEMON_SECRET_KEY:
     print("Please set it to match the value in your .env.local file")
     sys.exit(1)
 
-def log(message: str):
-    """Print timestamped log message"""
+def log(message):
+    """Print timestamped log message (Python 3.4+ compatible)"""
     timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-    print(f"[{timestamp}] {message}")
+    print("[{0}] {1}".format(timestamp, message))
 
-def get_pending_orders() -> Optional[List[Dict]]:
+def http_get_json(url, headers):
+    """Perform HTTP GET returning JSON (works with requests or built-in urllib)"""
+    if USE_REQUESTS:
+        response = requests.get(url, headers=headers, timeout=30)
+        if response.status_code == 401:
+            return 401, None
+        if response.status_code != 200:
+            return response.status_code, None
+        return 200, response.json()
+    else:
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                return 200, data
+        except urllib.error.HTTPError as e:
+            return e.code, None
+        except Exception:
+            return 500, None
+
+def http_download_file(url, temp_path):
+    """Download file from URL to disk (works with requests or built-in urllib)"""
+    if USE_REQUESTS:
+        response = requests.get(url, timeout=60)
+        if response.status_code != 200:
+            return False, len(response.content) if response.content else 0
+        with open(temp_path, 'wb') as f:
+            f.write(response.content)
+        return True, len(response.content)
+    else:
+        try:
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                content = resp.read()
+                with open(temp_path, 'wb') as f:
+                    f.write(content)
+                return True, len(content)
+        except Exception:
+            return False, 0
+
+def http_post_json(url, headers, payload):
+    """Perform HTTP POST with JSON body"""
+    if USE_REQUESTS:
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        return response.status_code == 200
+    else:
+        data = json.dumps(payload).encode('utf-8')
+        headers['Content-Type'] = 'application/json'
+        req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
+def get_pending_orders():
     """Fetch pending orders from the server"""
     try:
         headers = {
-            'Authorization': f'Bearer {DAEMON_SECRET_KEY}'
+            'Authorization': 'Bearer {0}'.format(DAEMON_SECRET_KEY)
         }
+        url = '{0}/api/daemon/pending'.format(API_BASE_URL)
+        status, data = http_get_json(url, headers)
 
-        response = requests.get(
-            f'{API_BASE_URL}/api/daemon/pending',
-            headers=headers,
-            timeout=30
-        )
-
-        if response.status_code == 401:
+        if status == 401:
             log("ERROR: Unauthorized - check your DAEMON_SECRET_KEY")
             return None
 
-        if response.status_code != 200:
-            log(f"ERROR: Failed to fetch orders (status {response.status_code})")
+        if status != 200 or data is None:
+            log("ERROR: Failed to fetch orders (status {0})".format(status))
             return None
 
-        data = response.json()
         return data.get('orders', [])
 
-    except requests.exceptions.RequestException as e:
-        log(f"ERROR: Network error - {e}")
-        return None
     except Exception as e:
-        log(f"ERROR: Failed to fetch orders - {e}")
+        log("ERROR: Failed to fetch orders - {0}".format(e))
         return None
 
-def download_file(url: str, filename: str) -> Optional[str]:
+def download_file(url, filename):
     """Download file from signed URL to temp directory"""
     try:
-        response = requests.get(url, timeout=60)
+        temp_path = os.path.join(TEMP_DIR, "print_{0}".format(filename))
+        success, bytes_len = http_download_file(url, temp_path)
 
-        if response.status_code != 200:
-            log(f"ERROR: Failed to download file (status {response.status_code})")
+        if not success:
+            log("ERROR: Failed to download file {0}".format(filename))
             return None
 
-        # Create temp file path
-        temp_path = os.path.join(TEMP_DIR, f"print_{filename}")
-
-        with open(temp_path, 'wb') as f:
-            f.write(response.content)
-
-        log(f"Downloaded: {filename} ({len(response.content)} bytes)")
+        log("Downloaded: {0} ({1} bytes)".format(filename, bytes_len))
         return temp_path
 
     except Exception as e:
-        log(f"ERROR: Failed to download file - {e}")
+        log("ERROR: Failed to download file - {0}".format(e))
         return None
 
-def print_file_windows(file_path: str) -> bool:
+def print_file_windows(file_path):
     """Print file on Windows using default printer"""
     try:
+        # Check for creationflags attribute in subprocess (added in Python 3.7)
+        create_no_window = getattr(subprocess, 'CREATE_NO_WINDOW', 0x08000000)
+
         # Method 1: Try using Adobe Reader if available
         if file_path.lower().endswith('.pdf'):
             adobe_paths = [
@@ -90,11 +141,11 @@ def print_file_windows(file_path: str) -> bool:
 
             for adobe_path in adobe_paths:
                 if os.path.exists(adobe_path):
-                    log(f"Printing with Adobe Reader: {file_path}")
+                    log("Printing with Adobe Reader: {0}".format(file_path))
                     subprocess.run(
                         [adobe_path, "/t", file_path],
                         check=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW
+                        creationflags=create_no_window
                     )
                     time.sleep(3)  # Wait for print spooler
                     return True
@@ -102,7 +153,6 @@ def print_file_windows(file_path: str) -> bool:
         # Method 2: Try using SumatraPDF (best for silent printing)
         if file_path.lower().endswith('.pdf'):
             try:
-                # Check if SumatraPDF is installed
                 sumatra_paths = [
                     r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
                     r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
@@ -115,42 +165,33 @@ def print_file_windows(file_path: str) -> bool:
                         break
 
                 if sumatra_path:
-                    log(f"Printing with SumatraPDF: {file_path}")
+                    log("Printing with SumatraPDF: {0}".format(file_path))
                     subprocess.run(
                         [sumatra_path, "-print-to-default", "-silent", file_path],
                         check=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW
+                        creationflags=create_no_window
                     )
                     time.sleep(2)  # Wait for print spooler
                     return True
             except Exception as e:
-                log(f"SumatraPDF print failed: {e}")
+                log("SumatraPDF print failed: {0}".format(e))
 
-        # Method 3: Use Windows Print API via command line (works without PDF viewer)
-        log(f"Printing with Windows Print API: {file_path}")
+        # Method 3: Use Windows Print API via batch script
+        log("Printing with Windows Print API: {0}".format(file_path))
 
-        # Use the PRINT command which should work on any Windows system
-        # First, try using the default application association
         try:
-            # Create a batch file to print
             batch_path = os.path.join(TEMP_DIR, "print_job.bat")
             with open(batch_path, 'w') as f:
-                # Use the PRINT command or copy to printer port
-                f.write(f'@echo off\n')
-                f.write(f'echo Printing file...\n')
-                # Try to use the default print association
-                f.write(f'rundll32.exe C:\\Windows\\System32\\shimgvw.dll,ImageView_PrintTo /pt "{file_path}" "HP LaserJet 1020"\n')
+                f.write('@echo off\n')
+                f.write('echo Printing file...\n')
+                f.write('rundll32.exe C:\\Windows\\System32\\shimgvw.dll,ImageView_PrintTo /pt "{0}" "HP LaserJet 1020"\n'.format(file_path))
 
-            # Execute the batch file
             result = subprocess.run(
                 [batch_path],
                 check=False,
-                capture_output=True,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                timeout=10
+                creationflags=create_no_window
             )
 
-            # Clean up batch file
             try:
                 os.remove(batch_path)
             except:
@@ -160,76 +201,65 @@ def print_file_windows(file_path: str) -> bool:
                 time.sleep(3)
                 return True
         except Exception as e:
-            log(f"Batch print method failed: {e}")
+            log("Batch print method failed: {0}".format(e))
 
-        # Method 4: As last resort, tell user to install a PDF viewer
         log("ERROR: No PDF viewer found. Please install SumatraPDF or Adobe Reader")
-        log("Download SumatraPDF: https://www.sumatrapdfreader.org/download-free-pdf-viewer")
-
         return False
 
     except Exception as e:
-        log(f"ERROR: Failed to print file - {e}")
+        log("ERROR: Failed to print file - {0}".format(e))
         return False
 
-def mark_order_complete(order_id: str) -> bool:
+def mark_order_complete(order_id):
     """Mark order as printed and trigger file cleanup"""
     try:
         headers = {
-            'Authorization': f'Bearer {DAEMON_SECRET_KEY}',
-            'Content-Type': 'application/json'
+            'Authorization': 'Bearer {0}'.format(DAEMON_SECRET_KEY)
         }
+        url = '{0}/api/daemon/complete'.format(API_BASE_URL)
+        payload = {'orderId': order_id}
 
-        response = requests.post(
-            f'{API_BASE_URL}/api/daemon/complete',
-            headers=headers,
-            json={'orderId': order_id},
-            timeout=30
-        )
-
-        if response.status_code == 200:
-            log(f"Order {order_id} marked as PRINTED")
+        if http_post_json(url, headers, payload):
+            log("Order {0} marked as PRINTED".format(order_id))
             return True
         else:
-            log(f"ERROR: Failed to mark order complete (status {response.status_code})")
+            log("ERROR: Failed to mark order complete")
             return False
 
     except Exception as e:
-        log(f"ERROR: Failed to mark order complete - {e}")
+        log("ERROR: Failed to mark order complete - {0}".format(e))
         return False
 
-def cleanup_temp_file(file_path: str):
+def cleanup_temp_file(file_path):
     """Delete temporary file"""
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
-            log(f"Cleaned up temp file: {file_path}")
+            log("Cleaned up temp file: {0}".format(file_path))
     except Exception as e:
-        log(f"WARNING: Failed to delete temp file - {e}")
+        log("WARNING: Failed to delete temp file - {0}".format(e))
 
-def process_order(order: Dict) -> bool:
+def process_order(order):
     """Process a single print order (handles single and multi-file jobs)"""
     order_id = order['id']
     raw_urls = order['file_url']
     raw_filenames = order.get('filename') or order['file_url']
     page_count = order['page_count']
 
-    # Split multi-file strings if comma-separated
     file_urls = [u.strip() for u in raw_urls.split(',') if u.strip()]
     filenames = [f.strip() for f in raw_filenames.split(',') if f.strip()]
 
-    # Ensure matching count
     if len(filenames) < len(file_urls):
-        filenames = filenames + [f"file_{i}.pdf" for i in range(len(filenames), len(file_urls))]
+        filenames = filenames + ["file_{0}.pdf".format(i) for i in range(len(filenames), len(file_urls))]
 
-    log(f"Processing order {order_id} ({len(file_urls)} file(s), {page_count} total pages)")
+    log("Processing order {0} ({1} file(s), {2} total pages)".format(order_id, len(file_urls), page_count))
 
     all_printed_successfully = True
     temp_files = []
 
     try:
         for idx, (url, fname) in enumerate(zip(file_urls, filenames)):
-            log(f"Downloading file {idx+1}/{len(file_urls)}: {fname}")
+            log("Downloading file {0}/{1}: {2}".format(idx+1, len(file_urls), fname))
             temp_path = download_file(url, fname)
             if not temp_path:
                 all_printed_successfully = False
@@ -237,33 +267,32 @@ def process_order(order: Dict) -> bool:
             
             temp_files.append(temp_path)
 
-            log(f"Printing file {idx+1}/{len(file_urls)}: {fname}")
+            log("Printing file {0}/{1}: {2}".format(idx+1, len(file_urls), fname))
             if not print_file_windows(temp_path):
                 all_printed_successfully = False
-                log(f"ERROR: Failed to print {fname}")
+                log("ERROR: Failed to print {0}".format(fname))
                 break
 
         if all_printed_successfully:
-            log(f"All {len(file_urls)} document(s) sent to printer successfully")
+            log("All {0} document(s) sent to printer successfully".format(len(file_urls)))
             if not mark_order_complete(order_id):
-                log(f"WARNING: Order printed but failed to mark as complete")
+                log("WARNING: Order printed but failed to mark as complete")
             return True
         else:
-            log(f"ERROR: Order {order_id} failed to print completely")
+            log("ERROR: Order {0} failed to print completely".format(order_id))
             return False
 
     finally:
-        # Clean up all downloaded temp files
         for tpath in temp_files:
             cleanup_temp_file(tpath)
 
 def main():
     """Main daemon loop"""
     log("=" * 60)
-    log("Print Daemon Starting")
-    log(f"API Base URL: {API_BASE_URL}")
-    log(f"Poll Interval: {POLL_INTERVAL} seconds")
-    log(f"Temp Directory: {TEMP_DIR}")
+    log("Print Daemon Starting (Universal Python 3.4+ Mode)")
+    log("API Base URL: {0}".format(API_BASE_URL))
+    log("Poll Interval: {0} seconds".format(POLL_INTERVAL))
+    log("Temp Directory: {0}".format(TEMP_DIR))
     log("=" * 60)
 
     consecutive_errors = 0
@@ -271,37 +300,35 @@ def main():
 
     while True:
         try:
-            # Fetch pending orders
             orders = get_pending_orders()
 
             if orders is None:
                 consecutive_errors += 1
                 if consecutive_errors >= max_consecutive_errors:
-                    log(f"ERROR: Too many consecutive errors ({consecutive_errors}). Check your configuration.")
+                    log("ERROR: Too many consecutive errors ({0}). Check configuration.".format(consecutive_errors))
                     log("Continuing to retry...")
             else:
-                consecutive_errors = 0  # Reset error counter on success
+                consecutive_errors = 0
 
                 if len(orders) > 0:
-                    log(f"Found {len(orders)} pending order(s)")
+                    log("Found {0} pending order(s)".format(len(orders)))
 
                     for order in orders:
                         try:
                             process_order(order)
                         except Exception as e:
-                            log(f"ERROR: Failed to process order {order['id']}: {e}")
+                            log("ERROR: Failed to process order {0}: {1}".format(order['id'], e))
                             continue
                 else:
                     log("No pending orders")
 
-            # Wait before next poll
             time.sleep(POLL_INTERVAL)
 
         except KeyboardInterrupt:
             log("Daemon stopped by user")
             break
         except Exception as e:
-            log(f"ERROR: Unexpected error in main loop - {e}")
+            log("ERROR: Unexpected error in main loop - {0}".format(e))
             consecutive_errors += 1
             time.sleep(POLL_INTERVAL)
 
