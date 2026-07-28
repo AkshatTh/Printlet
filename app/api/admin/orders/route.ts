@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Fetch ALL orders (including DELIVERED) to compute accurate global revenue & profit stats
+    // 3. Fetch ALL orders to compute accurate metrics and separate queues
     const { data: ordersData, error: ordersError } = await supabaseAdmin
       .from('orders')
       .select('*')
@@ -64,7 +64,17 @@ export async function GET(request: NextRequest) {
                ((!order.status || order.status === 'PENDING') && (order.payment_status === 'PAID' || order.payment_status === 'PRINTED'))
     );
 
-    // Financial Metrics Calculation across ALL completed orders (including DELIVERED)
+    // Delivered orders from the last 10 days
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+    const deliveredLast10DaysOrders = allOrders.filter(order => {
+      if (order.status !== 'DELIVERED') return false;
+      const orderDate = new Date(order.updated_at || order.created_at);
+      return orderDate >= tenDaysAgo;
+    });
+
+    // Financial Metrics Calculation across ALL paid/delivered orders
     const totalPaise = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const grossRevenueRupees = totalPaise / 100;
     const totalPagesPrinted = completedOrders.reduce((sum, o) => sum + (o.page_count || 0), 0);
@@ -72,16 +82,19 @@ export async function GET(request: NextRequest) {
     const paperPrintingCostRupees = totalPagesPrinted * 1.00; // ₹1 per page print cost
     const netProfitRupees = Math.max(0, grossRevenueRupees - (razorpayFeeRupees + paperPrintingCostRupees));
 
-    // 4. Fetch profiles for user_ids in activeDeliveryOrders
-    const userIds = Array.from(new Set(activeDeliveryOrders.map(o => o.user_id).filter(Boolean)));
-    
+    // 4. Fetch profiles for user_ids across active & delivered orders
+    const allUserIds = Array.from(new Set([
+      ...activeDeliveryOrders.map(o => o.user_id),
+      ...deliveredLast10DaysOrders.map(o => o.user_id)
+    ].filter(Boolean)));
+
     let profilesMap: Record<string, { full_name: string; phone_number: string }> = {};
 
-    if (userIds.length > 0) {
+    if (allUserIds.length > 0) {
       const { data: profilesData } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name, phone_number')
-        .in('id', userIds);
+        .in('id', allUserIds);
 
       if (profilesData) {
         profilesData.forEach(p => {
@@ -93,8 +106,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 5. Combine order details with profile info for delivery queue
-    const formattedQueue = activeDeliveryOrders.map(order => {
+    // Helper to format order with profile details
+    const formatOrder = (order: any) => {
       const profile = order.user_id ? profilesMap[order.user_id] : null;
       return {
         id: order.id,
@@ -105,6 +118,7 @@ export async function GET(request: NextRequest) {
         status: order.status || order.payment_status || 'PAID',
         pickup_time: order.pickup_time || order.created_at,
         created_at: order.created_at,
+        updated_at: order.updated_at || order.created_at,
         requires_staple: order.requires_staple,
         user_id: order.user_id,
         profiles: profile ? {
@@ -112,20 +126,25 @@ export async function GET(request: NextRequest) {
           phone_number: profile.phone_number
         } : null
       };
-    });
+    };
+
+    const formattedActive = activeDeliveryOrders.map(formatOrder);
+    const formattedDelivered = deliveredLast10DaysOrders.map(formatOrder);
 
     return NextResponse.json({
       success: true,
-      count: formattedQueue.length,
-      orders: formattedQueue,
+      count: formattedActive.length,
+      orders: formattedActive,
+      deliveredOrders: formattedDelivered,
       stats: {
         grossRevenue: grossRevenueRupees.toFixed(2),
         totalPages: totalPagesPrinted,
         razorpayFee: razorpayFeeRupees.toFixed(2),
         printCost: paperPrintingCostRupees.toFixed(2),
         netProfit: netProfitRupees.toFixed(2),
-        pendingDeliveriesCount: formattedQueue.length,
-        readyDeliveriesCount: formattedQueue.filter(o => o.status === 'PRINTED').length
+        pendingDeliveriesCount: formattedActive.length,
+        readyDeliveriesCount: formattedActive.filter(o => o.status === 'PRINTED').length,
+        deliveredCount: formattedDelivered.length
       }
     });
 

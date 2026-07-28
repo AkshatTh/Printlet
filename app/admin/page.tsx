@@ -14,6 +14,7 @@ interface Order {
   status: string;
   pickup_time: string;
   created_at: string;
+  updated_at?: string;
   requires_staple: boolean;
   user_id: string;
   profiles?: {
@@ -30,10 +31,12 @@ interface FinancialStats {
   netProfit: string;
   pendingDeliveriesCount: number;
   readyDeliveriesCount: number;
+  deliveredCount?: number;
 }
 
 export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [deliveredOrders, setDeliveredOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<FinancialStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -89,6 +92,7 @@ export default function AdminPage() {
 
       setIsAdmin(true);
       setOrders(data.orders || []);
+      setDeliveredOrders(data.deliveredOrders || []);
       if (data.stats) {
         setStats(data.stats);
       }
@@ -103,12 +107,17 @@ export default function AdminPage() {
   const markAsDelivered = async (orderId: string) => {
     const { error } = await supabase
       .from('orders')
-      .update({ status: 'DELIVERED' })
+      .update({
+        status: 'DELIVERED',
+        updated_at: new Date().toISOString()
+      })
       .eq('id', orderId);
 
     if (!error) {
-      // Remove from active delivery queue
-      setOrders(orders.filter(o => o.id !== orderId));
+      // Re-fetch all orders & stats from backend to update active & delivered queues cleanly
+      await checkAdminAndLoadOrders();
+    } else {
+      console.error('Failed to mark delivered:', error);
     }
   };
 
@@ -181,9 +190,16 @@ export default function AdminPage() {
     }
   };
 
-  const getWhatsAppLink = (phoneNumber: string, name: string, pickupTime: string) => {
-    const message = `Hi ${name}, your printout is ready for pickup ${getPickupMessage(new Date(pickupTime))}!`;
-    return `https://wa.me/${phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+  const getWhatsAppLink = (phone: string, name: string, pickupTimeStr: string) => {
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    const pickupMessage = getPickupMessage(new Date(pickupTimeStr));
+
+    const text = encodeURIComponent(
+      `Hi ${name}! 🖨️ Your print order from PrintHub is printed and ready!\n\n📍 ${pickupMessage}\n\nSee you then!`
+    );
+
+    return `https://wa.me/${formattedPhone}?text=${text}`;
   };
 
   if (loading) {
@@ -196,96 +212,113 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 px-4">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border border-rose-200">
-          <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
-            🚫
-          </div>
-          <h2 className="text-2xl font-black text-stone-900 mb-2">Access Denied (403)</h2>
-          <p className="text-stone-600 mb-6 text-sm font-bold">
-            You do not have admin permissions to access this page. Redirecting to your student dashboard...
-          </p>
-          <button
-            onClick={() => router.replace('/dashboard')}
-            className="px-6 py-3 text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-rose-500 rounded-xl hover:scale-105 transition-all shadow-md"
-          >
-            Go to Student Dashboard
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900">
+        <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl border border-red-200 text-center max-w-md shadow-xl">
+          <div className="text-5xl mb-4">⛔</div>
+          <h1 className="text-2xl font-black text-red-600 mb-2">Access Denied</h1>
+          <p className="text-stone-600 text-sm font-bold">You need administrator privileges to view this page.</p>
+          <p className="text-xs text-stone-400 mt-4 font-medium">Redirecting to student dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 font-sans">
-      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8">
-        {/* Header */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-orange-500/10 p-6 border border-orange-200 flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 py-8 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Bar */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
             <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600">
-              Admin Control Center ⚡
+              Admin Delivery & Operations ⚡
             </h1>
-            <p className="text-sm text-stone-600 mt-1 font-bold">
-              Campus delivery queue, direct free printing, and net profit analytics
-            </p>
-          </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-5 py-2.5 bg-orange-100 text-stone-800 rounded-xl hover:bg-orange-200 transition-all font-bold text-sm border border-orange-200"
-          >
-            Student Dashboard
-          </button>
-        </div>
-
-        {/* Financial & Operations Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-orange-200">
-            <p className="text-sm font-extrabold text-stone-500">Pending Deliveries</p>
-            <p className="text-3xl font-black text-orange-600 mt-2">{orders.length}</p>
-            <p className="text-xs text-stone-400 mt-1 font-bold">Active paid orders</p>
+            <p className="text-sm text-stone-600 mt-1 font-bold">Campus Dorm Printlet Network</p>
           </div>
 
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-orange-200">
-            <p className="text-sm font-extrabold text-stone-500">Gross Revenue (All Time)</p>
-            <p className="text-3xl font-black text-stone-900 mt-2">₹{stats?.grossRevenue || '0.00'}</p>
-            <p className="text-xs text-stone-400 mt-1 font-bold">{stats?.totalPages || 0} total pages printed</p>
-          </div>
-
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-orange-200">
-            <p className="text-sm font-extrabold text-stone-500">Razorpay Fee & Print Cost</p>
-            <p className="text-2xl font-black text-rose-500 mt-2">
-              -₹{((parseFloat(stats?.razorpayFee || '0') + parseFloat(stats?.printCost || '0'))).toFixed(2)}
-            </p>
-            <p className="text-xs text-stone-400 mt-1 font-bold">2% Gateway + ₹1/pg paper</p>
-          </div>
-
-          {/* NET PROFIT CARD */}
-          <div className="bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-xl rounded-2xl shadow-xl p-6 border border-emerald-300">
-            <p className="text-sm font-extrabold text-emerald-900">🎉 Net Profit</p>
-            <p className="text-3xl font-black text-emerald-700 mt-2">₹{stats?.netProfit || '0.00'}</p>
-            <p className="text-xs text-emerald-800 mt-1 font-black">Clear earnings after expenses</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="px-4 py-2 text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
+            >
+              Student Dashboard
+            </button>
+            <button
+              onClick={() => {
+                supabase.auth.signOut();
+                router.replace('/auth');
+              }}
+              className="px-4 py-2 text-sm font-bold text-red-700 bg-red-100 rounded-xl hover:bg-red-200 transition-colors border border-red-200"
+            >
+              Logout
+            </button>
           </div>
         </div>
 
-        {/* ADMIN DIRECT FREE PRINTING WIDGET */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
-          <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
-            <span>🖨️ Direct Free Admin Printing (Bypass Payment)</span>
-          </h2>
-          <p className="text-sm text-stone-600 font-bold">
-            Upload any documents directly to send them straight to your local dorm printer queue without paying.
-          </p>
+        {/* Financial & Operational Analytics Cards */}
+        {stats && (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-orange-200 shadow-md">
+              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Gross Revenue</p>
+              <p className="text-2xl font-black text-stone-900 mt-1">₹{stats.grossRevenue}</p>
+              <p className="text-xs text-stone-500 mt-1 font-medium">All Paid Orders</p>
+            </div>
 
-          {adminErr && <div className="p-3 bg-red-100 text-red-700 rounded-xl text-sm font-bold">{adminErr}</div>}
-          {adminMsg && <div className="p-3 bg-emerald-100 text-emerald-700 rounded-xl text-sm font-bold">{adminMsg}</div>}
+            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md">
+              <p className="text-xs text-emerald-700 font-bold uppercase tracking-wider">Net Profit 📈</p>
+              <p className="text-2xl font-black text-emerald-600 mt-1">₹{stats.netProfit}</p>
+              <p className="text-xs text-emerald-800 mt-1 font-medium">After Fees & Paper Cost</p>
+            </div>
+
+            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-orange-200 shadow-md">
+              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Total Pages</p>
+              <p className="text-2xl font-black text-orange-600 mt-1">{stats.totalPages}</p>
+              <p className="text-xs text-stone-500 mt-1 font-medium">Paper Cost: ₹{stats.printCost}</p>
+            </div>
+
+            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-orange-200 shadow-md">
+              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Queue to Deliver</p>
+              <p className="text-2xl font-black text-rose-600 mt-1">{stats.pendingDeliveriesCount}</p>
+              <p className="text-xs text-stone-500 mt-1 font-medium">{stats.readyDeliveriesCount} Printed & Ready</p>
+            </div>
+
+            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-md">
+              <p className="text-xs text-purple-700 font-bold uppercase tracking-wider">Completed (10d) ✅</p>
+              <p className="text-2xl font-black text-purple-600 mt-1">{stats.deliveredCount || deliveredOrders.length}</p>
+              <p className="text-xs text-purple-800 mt-1 font-medium">Delivered Orders</p>
+            </div>
+          </div>
+        )}
+
+        {/* Direct Admin Free Print Panel */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+                <span>⚡ Admin Free Print Panel</span>
+              </h2>
+              <p className="text-xs text-stone-600 font-bold mt-0.5">Upload any document to print instantly on dorm printer without payment</p>
+            </div>
+          </div>
+
+          {adminErr && (
+            <div className="p-3 bg-red-100 text-red-800 rounded-xl text-xs font-bold border border-red-200">
+              {adminErr}
+            </div>
+          )}
+
+          {adminMsg && (
+            <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+              {adminMsg}
+            </div>
+          )}
 
           <div
             onDragEnter={handleAdminDrag}
             onDragLeave={handleAdminDrag}
             onDragOver={handleAdminDrag}
             onDrop={handleAdminDrop}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer ${
-              dragActive ? 'border-orange-500 bg-orange-100/70' : 'border-orange-300 hover:border-orange-400 bg-amber-50/60'
+            className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all cursor-pointer ${
+              dragActive ? 'border-orange-500 bg-orange-100/70 scale-101' : 'border-orange-300 bg-amber-50/40 hover:border-orange-400'
             }`}
           >
             <input
@@ -296,7 +329,7 @@ export default function AdminPage() {
               className="hidden"
               id="admin-file-input"
             />
-            <label htmlFor="admin-file-input" className="cursor-pointer">
+            <label htmlFor="admin-file-input" className="cursor-pointer block">
               <p className="font-bold text-stone-900">Click or Drag Admin Files to Print Immediately</p>
               <p className="text-xs text-stone-500 mt-1 font-medium">PDF, DOCX, PNG, JPG (Multi-file supported)</p>
             </label>
@@ -330,14 +363,19 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Orders Delivery Queue Table */}
+        {/* Section 1: Active Campus Delivery Queue Table */}
         <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">
           <div className="p-6">
-            <h2 className="text-2xl font-black text-stone-900 mb-6">Active Campus Delivery Queue</h2>
+            <h2 className="text-2xl font-black text-stone-900 mb-6 flex items-center gap-2">
+              <span>🚚 Active Campus Delivery Queue</span>
+              <span className="text-sm font-bold px-3 py-1 bg-orange-100 text-orange-800 rounded-full">
+                {orders.length} Pending
+              </span>
+            </h2>
 
             {orders.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-stone-600 text-lg font-bold">All paid orders have been delivered! 🎉</p>
+                <p className="text-stone-600 text-lg font-bold">All active orders have been delivered! 🎉</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -424,6 +462,87 @@ export default function AdminPage() {
                               Mark Delivered
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 2: Delivered Order History Table (Last 10 Days) */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">
+          <div className="p-6">
+            <h2 className="text-2xl font-black text-stone-900 mb-6 flex items-center gap-2">
+              <span>✅ Delivered Orders History (Last 10 Days)</span>
+              <span className="text-sm font-bold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
+                {deliveredOrders.length} Completed
+              </span>
+            </h2>
+
+            {deliveredOrders.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-stone-500 text-sm font-bold">No orders marked as delivered in the last 10 days.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-orange-200">
+                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Customer</th>
+                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Document(s)</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Pages</th>
+                      <th className="text-right py-3 px-4 text-sm font-bold text-stone-700">Amount Paid</th>
+                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Delivered On</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deliveredOrders.map((order) => (
+                      <tr key={order.id} className="border-b border-stone-100 hover:bg-emerald-50/40 transition-colors">
+                        <td className="py-4 px-4">
+                          <div>
+                            <p className="font-bold text-stone-900">
+                              {order.profiles?.full_name || 'Student Order'}
+                            </p>
+                            <p className="text-sm text-stone-500 font-mono">
+                              {order.profiles?.phone_number || 'No phone recorded'}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm font-bold text-stone-900">
+                            {order.file_name || 'Document'}
+                          </p>
+                          <p className="text-xs text-stone-400 font-mono">ID: {order.id.slice(0, 8)}</p>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="font-bold text-stone-800">
+                            {order.page_count}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-right">
+                          <span className="font-black text-emerald-600">
+                            ₹{(order.total_amount / 100).toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm font-bold text-stone-800">
+                            {new Date(order.updated_at || order.created_at).toLocaleDateString('en-IN', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="px-3.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            DELIVERED
+                          </span>
                         </td>
                       </tr>
                     ))}
