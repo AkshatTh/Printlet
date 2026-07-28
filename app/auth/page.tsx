@@ -201,18 +201,25 @@ export default function AuthPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError(null);
-              }}
-              className="text-xs font-black text-orange-600 hover:underline"
-            >
-              {isLogin
-                ? "Don't have an account? Sign up now"
-                : 'Already have an account? Sign in'}
-            </button>
+          <div className="mt-6 text-center space-y-2">
+            <div>
+              <button
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError(null);
+                }}
+                className="text-xs font-black text-orange-600 hover:underline"
+              >
+                {isLogin
+                  ? "Don't have an account? Sign up now"
+                  : 'Already have an account? Sign in'}
+              </button>
+            </div>
+            <div>
+              <Link href="/privacy" className="text-xs font-bold text-stone-500 hover:text-stone-800 transition-colors">
+                Privacy Policy & Delivery Terms
+              </Link>
+            </div>
           </div>
         </div>
       </div>

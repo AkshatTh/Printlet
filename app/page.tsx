@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase-client';
+import { getPricePerPage } from '@/lib/pricing';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [calcPages, setCalcPages] = useState<number>(10);
   const [calcStaple, setCalcStaple] = useState<boolean>(false);
+  const [siteStatus, setSiteStatus] = useState<{ isClosed: boolean; message: string } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -40,17 +42,16 @@ export default function Home() {
       }
     });
 
+    // Check site maintenance / outage status
+    fetch('/api/site-status')
+      .then(res => res.json())
+      .then(data => setSiteStatus(data))
+      .catch(() => {});
+
     return () => subscription.unsubscribe();
   }, []);
 
-  const getRate = (pages: number) => {
-    if (pages >= 20) return 3.5;
-    if (pages >= 10) return 4.0;
-    if (pages >= 5) return 4.5;
-    return 5.0;
-  };
-
-  const currentRate = getRate(calcPages);
+  const currentRate = getPricePerPage(calcPages);
   const calculatedTotal = (calcPages * currentRate) + (calcStaple ? 1 : 0);
 
   return (
@@ -63,6 +64,17 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Outage Banner Alert */}
+        {siteStatus?.isClosed && (
+          <div className="mb-6 p-4 bg-amber-200/90 border border-amber-400 text-amber-950 rounded-3xl shadow-lg flex items-start gap-3">
+            <span className="text-2xl mt-0.5">⚠️</span>
+            <div>
+              <p className="font-extrabold text-base">Service Notice: Maintenance / Outage Mode Active</p>
+              <p className="text-sm font-medium mt-0.5">{siteStatus.message}</p>
+            </div>
+          </div>
+        )}
+
         {/* Navbar */}
         <header className="flex justify-between items-center mb-12 bg-white/90 backdrop-blur-xl px-6 py-4 rounded-3xl border border-orange-200 shadow-xl shadow-orange-500/10">
           <Link href="/" className="font-black text-2xl tracking-tight flex items-center gap-3">
@@ -75,6 +87,12 @@ export default function Home() {
           </Link>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/privacy"
+              className="px-4 py-2.5 text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
+            >
+              Terms & Privacy
+            </Link>
             {user ? (
               <>
                 <Link
@@ -156,7 +174,7 @@ export default function Home() {
             </div>
             <h3 className="text-2xl font-black text-stone-900 mb-2">Volume Discounts</h3>
             <p className="text-stone-600 leading-relaxed text-sm font-medium">
-              Save big on large assignments & lab manuals! Prices drop dynamically from ₹5.00 down to ₹3.50 per page.
+              Save big on large assignments & lab manuals! Prices start at ₹4.00 and drop dynamically down to ₹3.50 per page.
             </p>
           </div>
 
@@ -236,38 +254,28 @@ export default function Home() {
 
                 <div className="flex justify-between items-center p-4 bg-amber-50 rounded-2xl border border-amber-200">
                   <div>
-                    <p className="font-extrabold text-stone-900 text-sm">1 – 4 Pages</p>
-                    <p className="text-xs text-stone-500 font-medium">Standard single printouts</p>
+                    <p className="font-extrabold text-stone-900 text-sm">1 – 9 Pages</p>
+                    <p className="text-xs text-stone-500 font-medium">Standard single & short printouts</p>
                   </div>
                   <span className="px-3.5 py-1.5 bg-amber-200 font-black text-amber-900 rounded-xl text-sm">
-                    ₹5.00 / pg
+                    ₹4.00 / pg
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center p-4 bg-orange-50 rounded-2xl border border-orange-200">
                   <div>
-                    <p className="font-extrabold text-stone-900 text-sm">5 – 9 Pages</p>
-                    <p className="text-xs text-stone-500 font-medium">Short assignments & reports</p>
+                    <p className="font-extrabold text-stone-900 text-sm">10 – 29 Pages</p>
+                    <p className="text-xs text-stone-500 font-medium">Medium documents & lecture slides</p>
                   </div>
                   <span className="px-3.5 py-1.5 bg-orange-200 font-black text-orange-900 rounded-xl text-sm">
-                    ₹4.50 / pg
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center p-4 bg-rose-50 rounded-2xl border border-rose-200">
-                  <div>
-                    <p className="font-extrabold text-stone-900 text-sm">10 – 19 Pages</p>
-                    <p className="text-xs text-stone-500 font-medium">Medium documents & slides</p>
-                  </div>
-                  <span className="px-3.5 py-1.5 bg-rose-200 font-black text-rose-900 rounded-xl text-sm">
-                    ₹4.00 / pg
+                    ₹3.75 / pg
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center p-4 bg-gradient-to-r from-orange-500 to-rose-500 text-white rounded-2xl shadow-lg shadow-orange-500/20">
                   <div>
-                    <p className="font-black text-sm">20+ Pages (Best Value! 🔥)</p>
-                    <p className="text-xs text-orange-100 font-medium">Lab records & thesis printouts</p>
+                    <p className="font-black text-sm">30+ Pages (Best Value! 🔥)</p>
+                    <p className="text-xs text-orange-100 font-medium">Lab manuals, thesis & large packs</p>
                   </div>
                   <span className="px-3.5 py-1.5 bg-white text-orange-600 font-black rounded-xl text-sm">
                     ₹3.50 / pg
@@ -279,8 +287,13 @@ export default function Home() {
         </section>
 
         {/* Footer */}
-        <footer className="text-center py-8 text-xs text-stone-500 font-bold">
+        <footer className="flex flex-col sm:flex-row justify-between items-center py-8 text-xs text-stone-500 font-bold border-t border-orange-200/60 gap-4">
           <p>© {new Date().getFullYear()} PrintHub — Light, Fast & Automated Campus Printing Micro-SaaS.</p>
+          <div className="flex gap-4">
+            <Link href="/privacy" className="hover:text-stone-900 transition-colors">
+              Privacy Policy & Delivery Terms
+            </Link>
+          </div>
         </footer>
       </div>
     </div>

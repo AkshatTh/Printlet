@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Script from 'next/script';
 import { createClient } from '@/lib/supabase-client';
 import { getPickupMessage } from '@/lib/pickup-time';
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [siteStatus, setSiteStatus] = useState<{ isClosed: boolean; message: string } | null>(null);
 
   // Multi-file upload states
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -88,6 +90,12 @@ export default function DashboardPage() {
     }
 
     setSessionToken(session.access_token);
+
+    // Fetch site maintenance / outage status
+    fetch('/api/site-status')
+      .then(res => res.json())
+      .then(data => setSiteStatus(data))
+      .catch(() => {});
 
     // Get user profile
     const { data: profile } = await supabase
@@ -320,6 +328,17 @@ export default function DashboardPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 py-8 px-4 sm:px-6 lg:px-8 font-sans">
         <div className="max-w-5xl mx-auto space-y-8">
+          {/* Service Outage Banner Notice */}
+          {siteStatus?.isClosed && (
+            <div className="p-4 bg-amber-200/90 border border-amber-400 text-amber-950 rounded-3xl shadow-lg flex items-start gap-3">
+              <span className="text-2xl mt-0.5">⚠️</span>
+              <div>
+                <p className="font-extrabold text-base">Service Notice: Maintenance / Outage Mode Active</p>
+                <p className="text-sm font-medium mt-0.5">{siteStatus.message}</p>
+              </div>
+            </div>
+          )}
+
           {/* Header Bar */}
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
@@ -330,6 +349,12 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              <Link
+                href="/privacy"
+                className="px-3 py-2 text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
+              >
+                Terms & Privacy
+              </Link>
               <button
                 onClick={() => router.push('/')}
                 className="px-4 py-2 text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
@@ -390,7 +415,11 @@ export default function DashboardPage() {
                   </div>
                   <div className="pt-2 border-t border-stone-200 text-xs font-bold text-orange-800 flex items-center gap-1.5">
                     <span>📍</span>
-                    <span>Ready for pickup tomorrow at 12:30 PM at the main cafeteria!</span>
+                    <span>
+                      {siteStatus?.isClosed
+                        ? 'Outage Notice: Your order is queued and will be printed as soon as service resumes.'
+                        : 'Ready for pickup tomorrow at 12:30 PM at the main cafeteria!'}
+                    </span>
                   </div>
                 </div>
 
@@ -580,7 +609,11 @@ export default function DashboardPage() {
                       {ord.pickup_time && (currentStatus === 'PAID' || currentStatus === 'PRINTED') && (
                         <div className="p-3 bg-orange-100 text-orange-900 rounded-xl text-xs font-bold border border-orange-300 flex items-center gap-2">
                           <span>📍</span>
-                          <span>{getPickupMessage(new Date(ord.pickup_time))}</span>
+                          <span>
+                            {siteStatus?.isClosed
+                              ? 'Outage Notice: Order received. Next-day delivery timeline will resume when service reopens.'
+                              : getPickupMessage(new Date(ord.pickup_time))}
+                          </span>
                         </div>
                       )}
                     </div>

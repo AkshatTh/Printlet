@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase-client';
 import { getPickupMessage } from '@/lib/pickup-time';
 
@@ -42,6 +43,14 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
+  // Site Outage / Closed Maintenance Toggle State
+  const [siteIsClosed, setSiteIsClosed] = useState(false);
+  const [siteMessage, setSiteMessage] = useState(
+    'Printing service is temporarily paused due to maintenance or power outage. Your order can still be uploaded and paid for, but next-day delivery timeline will resume as soon as service reopens.'
+  );
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusSuccessMsg, setStatusSuccessMsg] = useState<string | null>(null);
+
   // Admin Direct Free Print Upload states
   const [adminFiles, setAdminFiles] = useState<File[]>([]);
   const [adminStaple, setAdminStaple] = useState(false);
@@ -55,7 +64,52 @@ export default function AdminPage() {
 
   useEffect(() => {
     checkAdminAndLoadOrders();
+    fetchSiteStatus();
   }, []);
+
+  const fetchSiteStatus = async () => {
+    try {
+      const res = await fetch('/api/site-status');
+      const data = await res.json();
+      if (data) {
+        setSiteIsClosed(Boolean(data.isClosed));
+        if (data.message) setSiteMessage(data.message);
+      }
+    } catch (e) {}
+  };
+
+  const handleToggleSiteStatus = async (newClosedState: boolean) => {
+    if (!sessionToken) return;
+    setStatusUpdating(true);
+    setStatusSuccessMsg(null);
+    try {
+      const res = await fetch('/api/admin/site-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify({
+          isClosed: newClosedState,
+          message: siteMessage
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSiteIsClosed(data.isClosed);
+        setStatusSuccessMsg(
+          data.isClosed
+            ? 'Site marked as CLOSED (Outage Mode active for all users)'
+            : 'Site marked as OPEN (Normal service active)'
+        );
+        setTimeout(() => setStatusSuccessMsg(null), 3000);
+      }
+    } catch (e) {
+      console.error('Failed to toggle site status:', e);
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   const checkAdminAndLoadOrders = async () => {
     try {
@@ -245,6 +299,12 @@ export default function AdminPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/privacy"
+              className="px-4 py-2 text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
+            >
+              Terms & Privacy
+            </Link>
             <button
               onClick={() => router.push('/dashboard')}
               className="px-4 py-2 text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
@@ -260,6 +320,65 @@ export default function AdminPage() {
             >
               Logout
             </button>
+          </div>
+        </div>
+
+        {/* Site Status / Service Outage Control Panel */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+                <span>⚙️ Service Status & Outage Control</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                  siteIsClosed
+                    ? 'bg-amber-200 text-amber-950 border border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                }`}>
+                  {siteIsClosed ? '🔴 CLOSED (Outage Mode)' : '🟢 OPEN (Normal Service)'}
+                </span>
+              </h2>
+              <p className="text-xs text-stone-600 font-bold mt-1">
+                Toggle site closed status during power/printer outages. Users can still upload & pay, but delivery promise will be paused.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              {siteIsClosed ? (
+                <button
+                  onClick={() => handleToggleSiteStatus(false)}
+                  disabled={statusUpdating}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-xl transition-all shadow-md"
+                >
+                  {statusUpdating ? 'Updating...' : '🟢 Re-Open Service (Normal Mode)'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleToggleSiteStatus(true)}
+                  disabled={statusUpdating}
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-sm rounded-xl transition-all shadow-md"
+                >
+                  {statusUpdating ? 'Updating...' : '🔴 Mark Site as Closed (Outage Mode)'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {statusSuccessMsg && (
+            <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
+              {statusSuccessMsg}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-xs font-extrabold text-stone-700 uppercase tracking-wider">
+              Outage Notice Message displayed to Students:
+            </label>
+            <textarea
+              value={siteMessage}
+              onChange={(e) => setSiteMessage(e.target.value)}
+              rows={2}
+              className="w-full p-3 bg-stone-50 border border-orange-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:outline-none"
+            />
           </div>
         </div>
 

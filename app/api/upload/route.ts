@@ -1,17 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { PDFDocument } from 'pdf-lib';
+import { getPricePerPage } from '@/lib/pricing';
 import { calculatePickupTime } from '@/lib/pickup-time';
 
 const STAPLE_COST = 1; // ₹1 for staple
-
-// Tiered pricing based on page count
-function getPricePerPage(pageCount: number): number {
-  if (pageCount >= 20) return 3.5;  // 20+ pages: ₹3.50/page
-  if (pageCount >= 10) return 4;    // 10-19 pages: ₹4/page
-  if (pageCount >= 5) return 4.5;   // 5-9 pages: ₹4.50/page
-  return 5;                         // 1-4 pages: ₹5/page
-}
 
 async function countPDFPages(buffer: ArrayBuffer): Promise<number> {
   const pdfDoc = await PDFDocument.load(buffer);
