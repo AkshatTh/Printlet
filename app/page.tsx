@@ -124,18 +124,18 @@ export default function Home() {
         {/* Hero Section */}
         <section className="text-center py-10 lg:py-16 max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber-200/80 text-amber-900 text-sm font-extrabold mb-6 border border-amber-300 shadow-sm">
-            <span>🚀 100% Free Campus Printing Platform</span>
+            <span>🚀 Black-n-White Campus Printing Platform</span>
           </div>
 
           <h1 className="text-5xl lg:text-7xl font-black text-stone-900 tracking-tight leading-tight mb-6">
             Printing Made{' '}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500">
-              Fun, Fast & Simple.
+              Simple.
             </span>
           </h1>
 
           <p className="text-xl text-stone-700 font-medium mb-10 max-w-2xl mx-auto leading-relaxed">
-            Upload your documents right from your phone or laptop, pay via UPI, and pick up your fresh printouts on campus next morning at 12:30 PM!
+            Upload your documents right from your phone or laptop, pay via UPI, and pick up your fresh printouts on campus the next working day!
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -182,9 +182,9 @@ export default function Home() {
             <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-5 text-2xl shadow-md shadow-emerald-500/10">
               📍
             </div>
-            <h3 className="text-2xl font-black text-stone-900 mb-2">Dorm-to-Campus Pickup</h3>
+            <h3 className="text-2xl font-black text-stone-900 mb-2">Campus Pickup</h3>
             <p className="text-stone-600 leading-relaxed text-sm font-medium">
-              Printed overnight in our dorm setup and delivered to the main cafeteria at 12:30 PM every working day.
+              Printed overnight and delivered by the next working day.
             </p>
           </div>
         </section>
