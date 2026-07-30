@@ -1,6 +1,6 @@
-# 𖤓 Printlet — Campus Printing Micro-SaaS & Distributed Hardware Spooler Network
+# 𖤓 Printlet — Distributed Campus Micro-SaaS & Hardware Spooler Network
 
-> **A high-performance, automated campus printing platform built with Next.js 16, Supabase, Razorpay API, and an autonomous Windows Python Print Daemon.**
+> **An end-to-end, automated campus printing micro-SaaS connecting a Next.js 16 web application with an autonomous background Python print daemon on remote Windows hardware.**
 
 [![Next.js](https://img.shields.io/badge/Next.js-16_Turbopack-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -10,245 +10,169 @@
 
 ---
 
-## 📌 Executive Summary
+## 📌 Technical Overview
 
-**Printlet (PrintHub)** is a light, fast, 100% automated campus printing micro-SaaS designed to eliminate long printing queues for college students. Students can upload multi-file assignments (PDFs, Word documents, images) directly from their phone or laptop, receive dynamic volume-discounted pricing, pay via Razorpay UPI/Cards, and collect their **Black & White** printouts from **Room 607** during designated pickup slots (**10:40 AM – 10:50 AM** or **12:30 PM – 1:20 PM**).
+**Printlet** is a decoupled full-stack SaaS platform designed to automate physical document printing workflows. Users upload multi-file documents (PDFs, Word files, raster images) via a responsive Next.js 16 web portal, receive dynamic tier-calculated pricing, and complete payment via Razorpay integration. 
 
-Behind the scenes, a decoupled Python daemon running on a remote Windows machine connected to a physical printer polls the cloud backend for paid orders, streams documents via signed Supabase Storage URLs, silently spools them to the printer hardware, and purges cloud/local temporary files upon completion.
+Once payment is cryptographically verified, an autonomous background Python print daemon operating on remote Windows hardware fetches the paid print queue via authenticated API endpoints, streams binary documents via signed Supabase Storage URLs, silently spools jobs to physical hardware, and purges cloud and local temporary files upon completion.
 
 ---
 
 ## 🏗️ System Architecture
 
-Printlet is architected into two main layers: a **Cloud Web Layer** deployed on Vercel and an **Edge Hardware Layer** running an autonomous Python daemon on physical Windows hardware.
-
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Student as 🎓 Student / User
-    participant Frontend as 🌐 Next.js 16 Web App
-    participant Backend as ⚡ Next.js API Routes
-    participant Supabase as 🗄️ Supabase DB & Storage
-    participant Razorpay as 💳 Razorpay Gateway
-    participant Daemon as 🐍 Windows Print Daemon
-    participant Printer as 🖨️ SumatraPDF / GDI+ Printer
+    actor Student as Student / User
+    participant Frontend as Next.js 16 Web App
+    participant Backend as Next.js API Routes
+    participant Supabase as Supabase DB & Storage
+    participant Razorpay as Razorpay Gateway
+    participant Daemon as Windows Print Daemon
+    participant Printer as SumatraPDF / GDI+ Printer
 
     Student->>Frontend: Select & Drag-and-Drop Files (PDF, DOCX, PNG, JPG)
     Frontend->>Backend: POST /api/upload (Multi-file Payload)
     Backend->>Backend: Inspect Binary Buffers & Calculate Pages (pdf-lib)
-    Backend->>Supabase: Store files in private 'print-jobs' bucket & insert 'orders'
+    Backend->>Supabase: Store files in private bucket & insert orders
     Backend-->>Frontend: Return Order Summary & Tier-Calculated Pricing
     Student->>Frontend: Click Pay via Razorpay
     Frontend->>Razorpay: Initiate Razorpay Checkout Modal
     Razorpay-->>Student: Complete Payment (UPI / QR / Card)
     Razorpay->>Backend: POST /api/verify (Cryptographic HMAC SHA256 Signature)
-    Backend->>Supabase: Update Order Status to 'PAID'
+    Backend->>Supabase: Update Order Status to PAID
     loop Every 10 Seconds
         Daemon->>Backend: GET /api/daemon/pending (Bearer Auth)
         Backend-->>Daemon: Return Paid Print Queue Payload
         Daemon->>Supabase: Download file via Signed Temp Storage URL
         alt File is PDF
             Daemon->>Printer: Spool silently via SumatraPDF -silent
-        alt File is JPG / PNG
+        else File is JPG / PNG
             Daemon->>Daemon: Convert Image to PDF in-memory (convert_image_to_pdf)
             Daemon->>Printer: Spool converted PDF via SumatraPDF -silent
-        alt File is DOCX
+        else File is DOCX
             Daemon->>Printer: Print via MS Word COM Automation (win32com)
         end
         Daemon->>Backend: POST /api/daemon/complete
-        Backend->>Supabase: Purge temp cloud file & set status 'PRINTED'
+        Backend->>Supabase: Purge temp cloud file & set status PRINTED
     end
-    Student->>Frontend: View Ready Status & Pickup Notice (Room 607)
+    Student->>Frontend: View Real-Time Order Status & Completion Details
 ```
 
 ---
 
-## ✨ Key Features & Functionality
+## ✨ Key System Features
 
-### 📱 Student Portal & Frontend
-- **Multi-Format Ingestion**: Supports `.pdf`, `.docx`, `.png`, and `.jpg` multi-file batch uploads.
-- **Instant Page Calculation**: Uses serverless binary stream parsing (`pdf-lib`) to calculate total pages before payment.
-- **Dynamic Tier-Based Pricing**:
-  - **1 – 9 Pages**: ₹4.00 / page
-  - **10 – 29 Pages**: ₹3.75 / page
-  - **30+ Pages**: ₹3.50 / page *(Volume discount for lab manuals & notes)*
-  - **Staple Option**: Optional +₹1.00 staple fee per order batch.
-- **Seamless UPI Checkout**: Integrated Razorpay checkout with fallback DOM body-scroll recovery handlers.
-- **Pickup Notifications & Disclaimers**: Displays pickup location (**Room 607**), pickup slots (**10:40–10:50 AM** & **12:30–1:20 PM**), operator email (`at6710@srmist.edu.in`), and delay notices.
+### 🌐 Frontend & API Layer (Next.js 16 + TypeScript)
+- **Multi-Format Document Ingestion**: Serverless multi-file payload parsing supporting `.pdf`, `.docx`, `.png`, and `.jpg` formats.
+- **Binary Page Counting Engine**: In-memory binary buffer inspection (`pdf-lib`) to extract exact page metrics prior to payment initiation.
+- **Dynamic Tiered Pricing Algorithm**: Sub-linear volume pricing tiers (`1-9` pages @ ₹4.00, `10-29` pages @ ₹3.75, `30+` pages @ ₹3.50) with customizable staple fee toggles.
+- **Cryptographic Payment Protocol**: Razorpay payment integration with HMAC-SHA256 signature verification to prevent tampering.
+- **Role-Based Access Control & RLS**: Service-role API routes (`/api/admin/orders`, `/api/admin/deliver`) using Supabase Service Keys to safely execute administrative mutations while preserving client-side Row-Level Security (RLS).
 
-### ⚡ Admin Delivery & Operations Panel
-- **Active Delivery Queue**: Real-time view of paid and printed orders awaiting collection.
-- **Delivered Orders History**: Dedicated **Last 10 Days Completed Orders** section backed by Service-Role API persistence (`POST /api/admin/deliver`).
-- **Visual Staple Indicators**: Prominent `📌 Stapled (+₹1)` badges in admin tables so operators know which orders require stapling.
-- **WhatsApp Notification Integration**: One-click WhatsApp message triggers populated with customer name, phone number, and pickup slot timings.
-- **Service Outage & Maintenance Control Mode**: Toggle switch to mark the site as closed during power or hardware outages while allowing document uploads without next-day promises.
-- **Direct Free Print Upload Panel**: Admin drag-and-drop tool to upload and print documents directly without going through payment gateways.
+### ⚙️ Administrative Operations Dashboard
+- **Active Queue & Historical Analytics**: Dual-table architecture separating active delivery queues from a 10-day completed order audit log.
+- **Staple Indicator Metadata**: Explicit visual indicators (`📌 Stapled`) for hardware operator workflow efficiency.
+- **Service Outage Control Toggle**: Real-time maintenance mode switch with fault-tolerant memory fallback state (`lib/site-status-state.ts`).
+- **Direct Hardware Test Upload**: Free administrative upload panel to test physical printer spooling without payment gateways.
 
-### 🐍 Autonomous Windows Print Daemon
-- **Zero-Touch Hardware Spooling**: Runs silently in the background on Windows machines.
-- **Dynamic SumatraPDF Detection**: Dynamically locates installed or portable SumatraPDF binaries (e.g., `SumatraPDF-3.5.2-64.exe`).
-- **Pure-Python Image-to-PDF Wrapper**: Converted JPEG/PNG images on-the-fly to valid PDF streams to fix SumatraPDF silent CLI execution limitations.
-- **MS Word COM Automation**: Automated `.docx` file printing containing embedded images via `win32com.client` and LibreOffice fallbacks.
-- **Cross-Version Python Compatibility**: Customized `Popen` wrappers (`sub_run`) ensuring flawless execution on legacy Python 3.4.4 and Windows 7 environments up to modern Python 3.12.
+### 🐍 Autonomous Edge Print Daemon (Python 3.4+)
+- **Zero-Touch Spooling**: Runs as an un-monitored daemon process, polling `/api/daemon/pending` using HTTP Bearer authentication.
+- **Dynamic SumatraPDF Detection**: Scans system paths and local directories to auto-detect installed or portable SumatraPDF binaries.
+- **In-Memory Image PDF Wrapper**: Pure-Python stream builder (`convert_image_to_pdf`) to bypass CLI silent execution limitations for raster images.
+- **MS Word COM Automation**: Leverages `win32com.client` (with LibreOffice fallback) to preserve embedded document images and complex layouts.
+- **Backward Compatibility Layer**: Custom `Popen` wrappers (`sub_run`) guaranteeing execution across Python 3.4+ and legacy Windows environments.
 
 ---
 
-## 🛠️ The Engineering Journey: Hardships & Solved Bottlenecks
+## 🛠️ Engineering Challenges & Technical Solutions
 
-Building Printlet involved solving real-world hardware, browser, and cloud storage challenges:
+### 1. SumatraPDF Silent CLI Raster Image Limitation
+- **Challenge**: Invoking `SumatraPDF.exe -print-to-default -silent image.jpg` resulted in SumatraPDF exiting silently without sending print jobs to the printer queue.
+- **Solution**: Engineered a pure-Python in-memory JPEG/PNG to PDF stream converter inside `daemon/print_daemon.py`. Images are converted to PDF objects on-the-fly before passing to SumatraPDF, ensuring 100% silent execution.
 
-### 1. The SumatraPDF Silent CLI Image Printing Bug
-- **Issue**: Calling `SumatraPDF.exe -print-to-default -silent image.jpg` caused SumatraPDF to silently exit without spooling any output to the printer.
-- **Solution**: Developed a pure-Python in-memory JPEG-to-PDF binary stream converter (`convert_image_to_pdf()`) inside `daemon/print_daemon.py`. Images are converted to lightweight PDFs on-the-fly before handing them to SumatraPDF, guaranteeing 100% silent image printing.
+### 2. DOCX Embedded Image Rendering
+- **Challenge**: Command-line text converters stripped embedded images from `.docx` files during headless printing.
+- **Solution**: Implemented MS Word COM automation (`win32com.client.Dispatch("Word.Application")`) to render Word documents with full image and formatting fidelity.
 
-### 2. DOCX Files with Embedded Images
-- **Issue**: Standard text converters stripped embedded images from student assignment `.docx` files during command-line printing.
-- **Solution**: Built MS Word COM automation via `win32com.client.Dispatch("Word.Application")` to silently render and print complete Word documents with embedded images preserved.
+### 3. Legacy Environment & Subprocess Compatibility
+- **Challenge**: Target hardware executed Python 3.4.4 on legacy Windows, which lacks `subprocess.run()`.
+- **Solution**: Built a custom `sub_run()` compatibility abstraction over `subprocess.Popen()` with standard output piping, making the daemon OS and version agnostic.
 
-### 3. Legacy Windows 7 & Python 3.4.4 Compatibility
-- **Issue**: The dedicated printer machine ran Python 3.4.4 on Windows 7, which lacks modern standard library methods like `subprocess.run()`.
-- **Solution**: Built a custom `sub_run()` compatibility wrapper using `subprocess.Popen()` and standard output piping, allowing the daemon to execute seamlessly across legacy and modern environments.
-
-### 4. Supabase Client RLS Mutation Restrictions
-- **Issue**: Updating order statuses directly from client-side Supabase calls failed or was ignored due to strict Row-Level Security (RLS) policies for non-owner updates.
-- **Solution**: Created dedicated Next.js API routes (`/api/admin/deliver`, `/api/admin/orders`) using `supabaseAdmin` (Service Role Key) to execute administrative database updates securely.
-
-### 5. Razorpay Modal Body-Scroll Lock & Outage Control
-- **Issue**: Closing the Razorpay checkout modal occasionally left `overflow: hidden` on the HTML `<body>`, preventing user interaction.
-- **Solution**: Implemented an explicit `unlockBodyScroll()` utility attached to modal dismissals and payment handlers, combined with a fault-tolerant in-memory site status fallback (`lib/site-status-state.ts`) to ensure 0 server crashes.
+### 4. Supabase Client RLS Mutation Constraints
+- **Challenge**: Client-side status updates were restricted by Supabase Row-Level Security policies for non-owner updates.
+- **Solution**: Created dedicated Next.js server routes using `supabaseAdmin` (Service Role Key) to execute database status transitions securely behind server authentication.
 
 ---
 
-## 📂 Repository File Structure
+## 📁 Project Structure
 
 ```
 printing-platform/
 ├── app/
-│   ├── admin/               # Admin Operations & Delivery Panel
+│   ├── admin/               # Admin Dashboard & Operations Panel
 │   ├── api/
-│   │   ├── admin/
-│   │   │   ├── deliver/     # Service-Role Mark Delivered Route
-│   │   │   ├── orders/      # Service-Role Admin Orders & Analytics
-│   │   │   ├── site-status/ # Admin Outage Mode Toggle Endpoint
-│   │   │   └── upload/      # Admin Direct Free Print Upload
-│   │   ├── checkout/        # Razorpay Order Creation
-│   │   ├── daemon/
-│   │   │   ├── complete/    # Daemon Order Complete Notification
-│   │   │   └── pending/     # Daemon Pending Print Queue Fetch
-│   │   ├── site-status/     # Public Site Outage Status Endpoint
-│   │   ├── upload/          # Multi-file Upload & Page Counter
-│   │   └── verify/          # Razorpay Webhook & Signature Verification
-│   ├── auth/                # Student Sign In & Registration
-│   ├── dashboard/           # Student Print Dashboard & Upload Hub
-│   ├── privacy/             # Terms of Service & Privacy Policy Page
-│   ├── layout.tsx           # Global Root Layout & Fonts
+│   │   ├── admin/           # Administrative Service-Role Routes
+│   │   ├── checkout/        # Razorpay Payment Initialization
+│   │   ├── daemon/          # Daemon Polling & Completion Routes
+│   │   ├── site-status/     # Public Outage Mode Status Route
+│   │   ├── upload/          # Multi-File Ingestion & Page Calculator
+│   │   └── verify/          # Cryptographic Webhook Verification
+│   ├── auth/                # Auth & Registration Pages
+│   ├── dashboard/           # Student Print Dashboard
+│   ├── privacy/             # Terms & Service Disclosures
+│   ├── layout.tsx           # Root Layout
 │   └── page.tsx             # Public Landing Page & Calculator
 ├── daemon/
 │   ├── print_daemon.py      # Autonomous Python Print Daemon
 │   └── requirements.txt     # Python Dependencies
 ├── lib/
-│   ├── pickup-time.ts       # Pickup Schedule & Slot Formatting
-│   ├── pricing.ts           # Dynamic Volume Tier Calculator
+│   ├── pricing.ts           # Tier-Based Pricing Logic
 │   ├── site-status-state.ts # Outage Mode State Handler
-│   ├── supabase.ts          # Server-Side Supabase Admin Client
-│   └── supabase-client.ts   # Client-Side Supabase Client
+│   └── supabase.ts          # Server-Side Supabase Admin Client
 ├── supabase/
-│   ├── schema.sql           # Core Database Schema
-│   └── migration_site_settings.sql # Outage Mode Table Migration
-├── README.md                # Project Documentation
-└── package.json
+│   ├── schema.sql           # Database Schema Definition
+│   └── migration_site_settings.sql # Outage Settings Migration
+└── README.md
 ```
 
 ---
 
-## 🚀 Local Setup & Installation Guide
+## 💻 Local Development Setup
 
-### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **Python**: v3.4 or higher (for print daemon machine)
-- **Supabase Account**: For PostgreSQL database & cloud storage
-- **Razorpay Account**: For payment checkout keys
-
----
-
-### 1. Environment Configuration
-
-Create a `.env.local` file in the root directory:
+### 1. Environment Setup
+Create `.env.local` in the root directory:
 
 ```bash
-# Supabase Configuration
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
-# Razorpay API Credentials
-RAZORPAY_KEY_ID=rzp_live_xxxxxxxx
+# Razorpay
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
 RAZORPAY_KEY_SECRET=your-razorpay-secret
 
-# Daemon Authentication Secret
-DAEMON_SECRET_KEY=your-strong-random-daemon-secret-key
+# Daemon Auth
+DAEMON_SECRET_KEY=your-daemon-secret-key
 ```
 
----
-
-### 2. Database & Storage Setup (Supabase)
-
-1. Open your Supabase SQL Editor and execute the schema from [`supabase/schema.sql`](file:///c:/Projects/printer/printing-platform/supabase/schema.sql) and [`supabase/migration_site_settings.sql`](file:///c:/Projects/printer/printing-platform/supabase/migration_site_settings.sql).
-2. Create a private bucket in Supabase Storage named `print-jobs`:
-   - Allowed MIME Types: `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `image/png`, `image/jpeg`
-   - Maximum File Size: `50MB`
-
----
-
-### 3. Run Web Application
-
+### 2. Install & Run Next.js App
 ```bash
-# Install NPM dependencies
 npm install
-
-# Check TypeScript types
 npx tsc --noEmit
-
-# Run local development server
 npm run dev
 ```
 
-Open `http://localhost:3000` to access Printlet locally.
-
----
-
-### 4. Run Python Print Daemon (Printer Hardware Machine)
-
-On the Windows computer connected to the printer:
-
+### 3. Run Print Daemon
 ```bash
 cd daemon
-
-# Install Python requirements
 pip install -r requirements.txt
-
-# Set environment credentials in environment or script
-# Run the autonomous print daemon
 python print_daemon.py
 ```
 
-The daemon will:
-- Poll `/api/daemon/pending` every 10 seconds.
-- Download paid files securely via signed storage URLs.
-- Print documents natively to the default Windows printer.
-- Post completion status to `/api/daemon/complete` and purge temporary files.
-
 ---
 
-## 📧 Support & Contact
+## 📜 License
 
-For operational assistance, custom deployments, or campus printing inquiries:
-- **Operator Email**: [at6710@srmist.edu.in](mailto:at6710@srmist.edu.in)
-- **Developer GitHub**: [@AkshatTh](https://github.com/AkshatTh)
-- **Live Platform**: [printlet.vercel.app](https://printlet.vercel.app)
-
----
-
-<p center="text-center">
-  <strong>© 2026 Printlet — Engineered with precision for campus printing efficiency.</strong>
-</p>
+MIT License. Built for full-stack and systems engineering demonstration.
