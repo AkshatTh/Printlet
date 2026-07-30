@@ -513,6 +513,7 @@ export default function AdminPage() {
                       <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Customer</th>
                       <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Document(s)</th>
                       <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Pages</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Staple</th>
                       <th className="text-right py-3 px-4 text-sm font-bold text-stone-700">Amount Paid</th>
                       <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Pickup Time</th>
                       <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Status</th>
@@ -543,6 +544,17 @@ export default function AdminPage() {
                             {order.page_count}
                           </span>
                         </td>
+                        <td className="py-4 px-4 text-center">
+                          {order.requires_staple ? (
+                            <span className="px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-black flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                              📌 Stapled (+₹1)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 text-stone-400 text-xs font-bold">
+                              No Staple
+                            </span>
+                          )}
+                        </td>
                         <td className="py-4 px-4 text-right">
                           <span className="font-black text-emerald-600">
                             ₹{(order.total_amount / 100).toFixed(2)}
@@ -556,7 +568,7 @@ export default function AdminPage() {
                               day: 'numeric'
                             })}
                           </p>
-                          <p className="text-xs text-stone-500 font-bold">12:30 PM</p>
+                          <p className="text-xs text-stone-500 font-bold">10:40 AM / 12:30 PM</p>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <span className={`px-3.5 py-1 rounded-full text-xs font-black ${
@@ -622,6 +634,7 @@ export default function AdminPage() {
                       <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Customer</th>
                       <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Document(s)</th>
                       <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Pages</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Staple</th>
                       <th className="text-right py-3 px-4 text-sm font-bold text-stone-700">Amount Paid</th>
                       <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Delivered On</th>
                       <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Status</th>
@@ -650,6 +663,17 @@ export default function AdminPage() {
                           <span className="font-bold text-stone-800">
                             {order.page_count}
                           </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          {order.requires_staple ? (
+                            <span className="px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-black flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                              📌 Stapled (+₹1)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 text-stone-400 text-xs font-bold">
+                              No Staple
+                            </span>
+                          )}
                         </td>
                         <td className="py-4 px-4 text-right">
                           <span className="font-black text-emerald-600">
