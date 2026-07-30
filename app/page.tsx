@@ -135,7 +135,7 @@ export default function Home() {
           </h1>
 
           <p className="text-xl text-stone-700 font-medium mb-10 max-w-2xl mx-auto leading-relaxed">
-            Upload your documents right from your phone or laptop, pay via UPI, and pick up your fresh printouts on campus the next working day!
+            Upload your documents right from your phone or laptop, pay via UPI, and pick up your fresh <strong>black-n-white</strong> printouts on campus the next working day!
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">

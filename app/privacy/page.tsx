@@ -35,7 +35,7 @@ export default function PrivacyPage() {
               Privacy Policy & Terms of Service
             </h1>
             <p className="text-sm text-stone-600 font-medium mt-1">
-              Last updated: July 2026 • Campus Dorm Printing Service
+              Last updated: July 2026 • Campus Printing Service
             </p>
           </div>
 
@@ -48,7 +48,7 @@ export default function PrivacyPage() {
             </h2>
             <div className="bg-amber-50/80 p-5 rounded-2xl border border-amber-200 space-y-2 text-sm text-stone-700 font-medium leading-relaxed">
               <p>
-                • <strong>Standard Schedule:</strong> Orders placed before midnight are printed overnight and made available for campus pickup the <strong>next working day around 12:30 PM</strong> at the main cafeteria.
+                • <strong>Standard Schedule:</strong> Orders placed before midnight are printed overnight and made available for campus pickup the <strong>next working day around 12:30 PM.</strong>
               </p>
               <p>
                 • <strong>Service Outages & Delays:</strong> While we strive for 100% on-time delivery, print fulfillment may occasionally be delayed due to power outages, internet disconnections, physical printer hardware maintenance, paper restocks, or severe weather conditions.
