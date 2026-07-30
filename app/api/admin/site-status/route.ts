@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { setSiteStatusInDB } from '@/lib/site-status-state';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,33 +38,10 @@ export async function POST(request: NextRequest) {
 
     const { isClosed, message } = await request.json();
 
-    const statusValue = {
-      is_closed: Boolean(isClosed),
-      message: message || 'Printing service is temporarily paused due to maintenance or power outage. Your order can still be uploaded and paid for, but next-day delivery timeline will resume as soon as service reopens.'
-    };
+    // Use fault-tolerant setSiteStatusInDB helper
+    const result = await setSiteStatusInDB(Boolean(isClosed), message);
 
-    // Upsert into site_settings table
-    const { error: dbError } = await supabaseAdmin
-      .from('site_settings')
-      .upsert({
-        key: 'site_status',
-        value: statusValue,
-        updated_at: new Date().toISOString()
-      });
-
-    if (dbError) {
-      console.error('Failed to update site_status in DB:', dbError);
-      return NextResponse.json(
-        { error: 'Failed to update site status in database', details: dbError.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      isClosed: Boolean(isClosed),
-      message: statusValue.message
-    });
+    return NextResponse.json(result);
 
   } catch (error) {
     console.error('Admin site status update error:', error);
