@@ -124,18 +124,18 @@ export default function Home() {
         {/* Hero Section */}
         <section className="text-center py-10 lg:py-16 max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber-200/80 text-amber-900 text-sm font-extrabold mb-6 border border-amber-300 shadow-sm">
-            <span>🚀 Black-n-White Campus Printing Platform</span>
+            <span>🖨️ Black & White Campus Printing Service</span>
           </div>
 
           <h1 className="text-5xl lg:text-7xl font-black text-stone-900 tracking-tight leading-tight mb-6">
-            Printing Made{' '}
+            Black & White Printing{' '}
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500">
-              Simple.
+              Made Simple.
             </span>
           </h1>
 
           <p className="text-xl text-stone-700 font-medium mb-10 max-w-2xl mx-auto leading-relaxed">
-            Upload your documents right from your phone or laptop, pay via UPI, and pick up your fresh <strong>black-n-white</strong> printouts on campus the next working day!
+            Upload your documents online, pay via UPI, and collect your <strong>Black & White</strong> printouts from <strong>Room 607</strong> during designated slots (10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM)!
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
@@ -160,11 +160,11 @@ export default function Home() {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 py-8">
           <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl border border-orange-100 shadow-xl shadow-orange-500/10 hover:-translate-y-1.5 transition-all duration-300">
             <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-5 text-2xl shadow-md shadow-amber-500/10">
-              📂
+              📄
             </div>
-            <h3 className="text-2xl font-black text-stone-900 mb-2">Multi-File Upload</h3>
+            <h3 className="text-2xl font-black text-stone-900 mb-2">Black & White Printouts</h3>
             <p className="text-stone-600 leading-relaxed text-sm font-medium">
-              Select multiple PDFs, DOCX files, or images in a single batch. We automatically aggregate your total pages!
+              Crisp black-n-white prints for notes, assignments, & lab manuals. Multi-file upload with aggregated pages!
             </p>
           </div>
 
@@ -174,7 +174,7 @@ export default function Home() {
             </div>
             <h3 className="text-2xl font-black text-stone-900 mb-2">Volume Discounts</h3>
             <p className="text-stone-600 leading-relaxed text-sm font-medium">
-              Save big on large assignments & lab manuals! Prices start at ₹4.00 and drop dynamically down to ₹3.50 per page.
+              Save big on large documents! Prices start at ₹4.00 and drop dynamically down to ₹3.50 per page.
             </p>
           </div>
 
@@ -182,9 +182,9 @@ export default function Home() {
             <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-5 text-2xl shadow-md shadow-emerald-500/10">
               📍
             </div>
-            <h3 className="text-2xl font-black text-stone-900 mb-2">Campus Pickup</h3>
+            <h3 className="text-2xl font-black text-stone-900 mb-2">Room 607 Collection</h3>
             <p className="text-stone-600 leading-relaxed text-sm font-medium">
-              Printed overnight and delivered by the next working day.
+              Collect in Room 607 between 10:40–10:50 AM or 12:30–1:20 PM. Contact <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline font-bold">at6710@srmist.edu.in</a> for queries.
             </p>
           </div>
         </section>
@@ -197,7 +197,7 @@ export default function Home() {
                 Super Clear Pricing
               </span>
               <h2 className="text-4xl font-black text-stone-900 mt-3 mb-2">
-                Live Pricing Calculator
+                Live Pricing Calculator (B&W Printouts)
               </h2>
               <p className="text-stone-600 font-medium text-sm">
                 Move the slider to calculate instant costs for your documents.
@@ -238,7 +238,7 @@ export default function Home() {
 
                 <div className="border-t border-orange-200 pt-4 space-y-2">
                   <div className="flex justify-between text-sm font-medium text-stone-600">
-                    <span>Current Tier Rate:</span>
+                    <span>Current B&W Tier Rate:</span>
                     <span className="font-bold text-stone-900">₹{currentRate.toFixed(2)} / page</span>
                   </div>
                   <div className="flex justify-between text-2xl font-black text-orange-600 pt-2">
@@ -250,7 +250,7 @@ export default function Home() {
 
               {/* Pricing Tiers */}
               <div className="space-y-3">
-                <h3 className="text-lg font-black text-stone-900 mb-3">Volume Discount Schedule</h3>
+                <h3 className="text-lg font-black text-stone-900 mb-3">Volume Discount Schedule (B&W)</h3>
 
                 <div className="flex justify-between items-center p-4 bg-amber-50 rounded-2xl border border-amber-200">
                   <div>
@@ -288,7 +288,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="flex flex-col sm:flex-row justify-between items-center py-8 text-xs text-stone-500 font-bold border-t border-orange-200/60 gap-4">
-          <p>© {new Date().getFullYear()} PrintHub — Light, Fast & Automated Campus Printing Micro-SaaS.</p>
+          <p>© {new Date().getFullYear()} PrintHub — Black & White Campus Printing Service. Contact: <a href="mailto:at6710@srmist.edu.in" className="underline hover:text-stone-800">at6710@srmist.edu.in</a></p>
           <div className="flex gap-4">
             <Link href="/privacy" className="hover:text-stone-900 transition-colors">
               Privacy Policy & Delivery Terms

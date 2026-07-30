@@ -1,9 +1,6 @@
 /**
  * Calculate pickup time for an order
- * Logic: Next working day at 12:30 PM
- * - If placed Mon-Thu: Next day at 12:30 PM
- * - If placed Fri/Sat: Monday at 12:30 PM
- * - If placed Sun: Monday at 12:30 PM
+ * Logic: Next working day (Slots: 10:40 AM - 10:50 AM or 12:30 PM - 1:20 PM in Room 607)
  */
 export function calculatePickupTime(): Date {
   const now = new Date();
@@ -54,7 +51,7 @@ export function formatPickupTime(pickupTime: Date): string {
     return 'Tomorrow';
   }
 
-  // Check if it's today (shouldn't happen with our logic, but just in case)
+  // Check if it's today
   if (
     pickupDate.getDate() === now.getDate() &&
     pickupDate.getMonth() === now.getMonth() &&
@@ -73,5 +70,5 @@ export function formatPickupTime(pickupTime: Date): string {
  */
 export function getPickupMessage(pickupTime: Date): string {
   const dayLabel = formatPickupTime(pickupTime);
-  return `Ready for pickup ${dayLabel} at 12:30 PM at the main cafeteria`;
+  return `Ready for pickup ${dayLabel} in Room 607 (10:40–10:50 AM or 12:30–1:20 PM)`;
 }

@@ -239,7 +239,7 @@ export default function DashboardPage() {
         amount: checkoutData.amount,
         currency: checkoutData.currency,
         name: 'PrintHub',
-        description: `Print ${uploadResponse.pageCount} total page(s) (${uploadResponse.fileCount} file(s))`,
+        description: `B&W Print ${uploadResponse.pageCount} total page(s) (${uploadResponse.fileCount} file(s))`,
         order_id: checkoutData.razorpayOrderId,
         modal: {
           ondismiss: function () {
@@ -345,7 +345,7 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600">
                 Welcome, {userName}! 👋
               </h1>
-              <p className="text-sm text-stone-600 mt-1 font-bold">Student Print Dashboard</p>
+              <p className="text-sm text-stone-600 mt-1 font-bold">Black & White Campus Print Dashboard</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -378,6 +378,39 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Permanent Collection & Location Card */}
+          <div className="bg-white/90 backdrop-blur-xl p-6 rounded-3xl border border-orange-200 shadow-lg shadow-orange-500/5 space-y-3">
+            <div className="flex items-center gap-2 text-orange-800 font-black text-lg">
+              <span>📍</span>
+              <span>Pickup Information & Slots — Room 607</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm font-medium text-stone-700">
+              <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200">
+                <p className="text-xs font-black text-stone-500 uppercase">Location</p>
+                <p className="font-extrabold text-stone-900 mt-0.5 text-base">Room 607</p>
+              </div>
+
+              <div className="bg-orange-50 p-3.5 rounded-2xl border border-orange-200">
+                <p className="text-xs font-black text-stone-500 uppercase">Daily Pickup Slots</p>
+                <p className="font-extrabold text-orange-900 mt-0.5 text-xs">
+                  • 10:40 AM – 10:50 AM<br />• 12:30 PM – 1:20 PM
+                </p>
+              </div>
+
+              <div className="bg-rose-50 p-3.5 rounded-2xl border border-rose-200">
+                <p className="text-xs font-black text-stone-500 uppercase">Inquiries & Discussions</p>
+                <p className="font-bold text-rose-900 mt-0.5 text-xs">
+                  <a href="mailto:at6710@srmist.edu.in" className="underline font-black">at6710@srmist.edu.in</a>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-100/70 border border-amber-300 text-amber-950 rounded-2xl text-xs font-bold leading-relaxed">
+              ⚠️ <strong>Important Notice:</strong> If you fail to collect your printouts during the designated slots (10:40–10:50 AM or 12:30–1:20 PM in Room 607) or do not contact <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printout will be delayed to the next working day.
+            </div>
+          </div>
+
           {/* Multi-File Upload Section */}
           <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 lg:p-8 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-6">
             {error && (
@@ -396,30 +429,36 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-3xl font-black text-stone-900">Payment Successful & Order Placed!</h2>
                   <p className="text-stone-600 font-bold text-sm mt-1">
-                    Your document has been sent directly to the local dorm print queue.
+                    Your Black & White document has been sent directly to the local print queue.
                   </p>
                 </div>
 
-                <div className="bg-white/90 p-5 rounded-2xl border border-emerald-200 text-left max-w-lg mx-auto space-y-2 text-sm">
+                <div className="bg-white/90 p-5 rounded-2xl border border-emerald-200 text-left max-w-lg mx-auto space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-stone-500 font-medium">Document(s):</span>
                     <span className="font-bold text-stone-900">{paymentSuccess.fileNames}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-stone-500 font-medium">Total Pages:</span>
+                    <span className="text-stone-500 font-medium">Total B&W Pages:</span>
                     <span className="font-bold text-stone-900">{paymentSuccess.pageCount} pages</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-stone-500 font-medium">Amount Paid:</span>
                     <span className="font-black text-emerald-600 text-base">₹{paymentSuccess.amount.toFixed(2)}</span>
                   </div>
-                  <div className="pt-2 border-t border-stone-200 text-xs font-bold text-orange-800 flex items-center gap-1.5">
-                    <span>📍</span>
-                    <span>
-                      {siteStatus?.isClosed
-                        ? 'Outage Notice: Your order is queued and will be printed as soon as service resumes.'
-                        : 'Ready for pickup tomorrow at 12:30 PM at the main cafeteria!'}
-                    </span>
+
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-bold text-stone-800 space-y-1">
+                    <p className="text-emerald-800 text-sm font-black flex items-center gap-1.5">
+                      <span>📍</span>
+                      <span>Collection Instructions (Room 607)</span>
+                    </p>
+                    <p>• <strong>Pickup Location:</strong> Room 607</p>
+                    <p>• <strong>Daily Slots:</strong> 10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM</p>
+                    <p>• <strong>Contact:</strong> <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline">at6710@srmist.edu.in</a></p>
+                  </div>
+
+                  <div className="p-2.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold">
+                    ⚠️ <strong>Disclaimer:</strong> If you do not come during the designated pickup slots or fail to contact us at <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printout will be delayed to the next working day.
                   </div>
                 </div>
 
@@ -444,7 +483,7 @@ export default function DashboardPage() {
             ) : !uploadResponse ? (
               <div className="space-y-6">
                 <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
-                  <span>📂 Upload Documents to Print</span>
+                  <span>📂 Upload Documents (Black & White Only)</span>
                 </h2>
 
                 {/* Drag and Drop Zone */}
@@ -472,7 +511,7 @@ export default function DashboardPage() {
                       📄
                     </div>
                     <p className="text-xl font-black text-stone-900">
-                      Drag & Drop Multiple Files Here
+                      Drag & Drop Multiple Files Here (B&W Prints)
                     </p>
                     <p className="text-sm text-stone-600 mt-1 font-medium">
                       or click to browse PDFs, DOCX, PNG, JPG (up to 50MB per file)
@@ -531,7 +570,7 @@ export default function DashboardPage() {
               /* Calculated Price Breakdown & Payment Button */
               <div className="space-y-6 bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-rose-500/10 p-6 lg:p-8 rounded-3xl border border-orange-200">
                 <h3 className="text-xl font-black text-stone-900">
-                  Order Summary
+                  Order Summary (Black & White Printout)
                 </h3>
 
                 <div className="space-y-3 text-sm">
@@ -540,7 +579,7 @@ export default function DashboardPage() {
                     <span className="font-bold text-stone-900">{uploadResponse.fileNames}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-orange-200">
-                    <span className="text-stone-600 font-medium">Total Page Count:</span>
+                    <span className="text-stone-600 font-medium">Total B&W Page Count:</span>
                     <span className="font-black text-orange-600">{uploadResponse.pageCount} page(s)</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-orange-200">
@@ -597,7 +636,7 @@ export default function DashboardPage() {
                         <div>
                           <p className="font-extrabold text-stone-900">{ord.file_name || 'Document Print'}</p>
                           <p className="text-xs text-stone-600 font-bold mt-1">
-                            {ord.page_count} pages • ₹{(ord.total_amount / 100).toFixed(2)} • Ordered on {new Date(ord.created_at).toLocaleDateString()}
+                            {ord.page_count} B&W pages • ₹{(ord.total_amount / 100).toFixed(2)} • Ordered on {new Date(ord.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <span className={`self-start sm:self-center px-3.5 py-1.5 rounded-full text-xs font-black ${getStatusBadge(currentStatus)}`}>
@@ -611,8 +650,8 @@ export default function DashboardPage() {
                           <span>📍</span>
                           <span>
                             {siteStatus?.isClosed
-                              ? 'Outage Notice: Order received. Next-day delivery timeline will resume when service reopens.'
-                              : getPickupMessage(new Date(ord.pickup_time))}
+                              ? 'Outage Notice: Order received. Delivery timeline will resume when service reopens.'
+                              : `Collect in Room 607 (10:40–10:50 AM or 12:30–1:20 PM). Contact: at6710@srmist.edu.in`}
                           </span>
                         </div>
                       )}
