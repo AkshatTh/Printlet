@@ -13,7 +13,7 @@ export default function PrivacyPage() {
               <span className="text-lg">🖨️</span>
             </div>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600 font-black">
-              PrintHub
+              Printlet
             </span>
           </Link>
 
@@ -128,7 +128,7 @@ export default function PrivacyPage() {
 
         {/* Footer */}
         <footer className="text-center text-xs text-stone-500 font-bold py-4">
-          <p>© {new Date().getFullYear()} PrintHub — Black & White Campus Printing Service</p>
+          <p>© {new Date().getFullYear()} Printlet — Black & White Campus Printing Service</p>
         </footer>
       </div>
     </div>

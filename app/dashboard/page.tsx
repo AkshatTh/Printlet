@@ -238,7 +238,7 @@ export default function DashboardPage() {
         key: checkoutData.keyId,
         amount: checkoutData.amount,
         currency: checkoutData.currency,
-        name: 'PrintHub',
+        name: 'Printlet',
         description: `B&W Print ${uploadResponse.pageCount} total page(s) (${uploadResponse.fileCount} file(s))`,
         order_id: checkoutData.razorpayOrderId,
         modal: {

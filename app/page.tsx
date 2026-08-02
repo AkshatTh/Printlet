@@ -82,7 +82,7 @@ export default function Home() {
               <span className="text-xl">🖨️</span>
             </div>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600 font-black">
-              PrintHub
+              Printlet
             </span>
           </Link>
 
@@ -288,7 +288,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="flex flex-col sm:flex-row justify-between items-center py-8 text-xs text-stone-500 font-bold border-t border-orange-200/60 gap-4">
-          <p>© {new Date().getFullYear()} PrintHub — Black & White Campus Printing Service. Contact: <a href="mailto:at6710@srmist.edu.in" className="underline hover:text-stone-800">at6710@srmist.edu.in</a></p>
+          <p>© {new Date().getFullYear()} Printlet — Black & White Campus Printing Service. Contact: <a href="mailto:at6710@srmist.edu.in" className="underline hover:text-stone-800">at6710@srmist.edu.in</a></p>
           <div className="flex gap-4">
             <Link href="/privacy" className="hover:text-stone-900 transition-colors">
               Privacy Policy & Delivery Terms

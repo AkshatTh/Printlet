@@ -259,7 +259,7 @@ export default function AdminPage() {
     const pickupMessage = getPickupMessage(new Date(pickupTimeStr));
 
     const text = encodeURIComponent(
-      `Hi ${name}! 🖨️ Your print order from PrintHub is printed and ready!\n\n📍 ${pickupMessage}\n\nSee you then!`
+      `Hi ${name}! 🖨️ Your print order from Printlet is printed and ready!\n\n📍 ${pickupMessage}\n\nSee you then!`
     );
 
     return `https://wa.me/${formattedPhone}?text=${text}`;

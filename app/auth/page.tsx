@@ -118,7 +118,7 @@ export default function AuthPage() {
               🖨️
             </Link>
             <h2 className="text-3xl font-black text-stone-900">
-              {isLogin ? 'Welcome Back! 👋' : 'Join PrintHub ✨'}
+              {isLogin ? 'Welcome Back! 👋' : 'Join Printlet ✨'}
             </h2>
             <p className="text-sm text-stone-600 mt-1 font-bold">
               {isLogin ? 'Sign in to access your print dashboard' : 'Create an account to start printing on campus'}

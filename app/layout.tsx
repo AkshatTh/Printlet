@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PrintHub | Instant College Document Printing",
-  description: "Upload documents, pay via Razorpay/UPI, and get automated prints instantly.",
+  title: "Printlet | Instant College Document Printing",
+  description: "Light, fast, zero-cost printing platform for college students. Upload documents, pay via UPI, and pick up printouts on campus next morning.",
 };
 
 export default function RootLayout({
