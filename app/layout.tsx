@@ -16,7 +16,11 @@ export const metadata: Metadata = {
   title: "Printlet | Instant College Document Printing",
   description: "Light, fast, zero-cost printing platform for college students. Upload documents, pay via UPI, and pick up printouts on campus next morning.",
   icons: {
-    icon: "/icon.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
     apple: "/icon.png",
   },
 };
