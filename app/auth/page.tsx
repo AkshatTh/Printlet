@@ -48,50 +48,54 @@ export default function AuthPage() {
       } else {
         // Sign up
         if (!fullName || !phoneNumber) {
-          throw new Error('Please provide your full name and phone number');
-        }
-
-        // Format and validate phone number
-        let formattedPhone = phoneNumber.trim();
-        if (/^\d{10}$/.test(formattedPhone)) {
-          formattedPhone = `+91${formattedPhone}`;
-        }
-
-        const phoneRegex = /^\+[1-9]\d{1,14}$/;
-        if (!phoneRegex.test(formattedPhone)) {
-          throw new Error('Phone number must be in international format with country code (e.g., +919876543210 or 10 digits)');
+          throw new Error('Full name and WhatsApp phone number are required');
         }
 
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: {
-              full_name: fullName,
-              phone_number: formattedPhone,
-            }
-          }
         });
 
         if (error) throw error;
 
         if (data.user) {
-          // Create profile record in profiles table
-          const { error: profileError } = await supabase
+          // Check if profile already exists (e.g. created by triggers)
+          const { data: existingProfile } = await supabase
             .from('profiles')
-            .upsert({
-              id: data.user.id,
-              full_name: fullName,
-              phone_number: formattedPhone,
-              role: 'STUDENT',
-            });
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
 
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-            if (profileError.message?.includes('profiles') || profileError.code === 'PGRST204' || profileError.code === '42P01') {
-              throw new Error('Database setup incomplete: Please run the migration_auth_delivery.sql script in your Supabase SQL Editor.');
+          if (existingProfile) {
+            // Profile exists, update it with name and phone
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                full_name: fullName,
+                phone_number: phoneNumber,
+              })
+              .eq('id', data.user.id);
+
+            if (updateError) {
+              console.error('Error updating profile:', updateError);
             }
-            throw new Error(`Profile setup failed: ${profileError.message}`);
+          } else {
+            // Profile doesn't exist, create it
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .insert([
+                {
+                  id: data.user.id,
+                  email: email,
+                  full_name: fullName,
+                  phone_number: phoneNumber,
+                  role: 'STUDENT',
+                },
+              ]);
+
+            if (profileError) {
+              console.error('Error creating profile:', profileError);
+            }
           }
 
           router.replace('/dashboard');
@@ -110,17 +114,17 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 flex items-center justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-md w-full">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl shadow-orange-500/10 p-8 border border-orange-200">
-          <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-orange-500 via-rose-500 to-amber-500 rounded-2xl mb-4 shadow-lg shadow-orange-500/30 text-3xl transform hover:rotate-6 transition-transform">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl shadow-orange-500/10 p-6 sm:p-8 border border-orange-200">
+          <div className="text-center mb-6 sm:mb-8">
+            <Link href="/" className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-orange-500 via-rose-500 to-amber-500 rounded-2xl mb-3 sm:mb-4 shadow-lg shadow-orange-500/30 text-2xl sm:text-3xl transform hover:rotate-6 transition-transform">
               🖨️
             </Link>
-            <h2 className="text-3xl font-black text-stone-900">
+            <h2 className="text-2xl sm:text-3xl font-black text-stone-900">
               {isLogin ? 'Welcome Back! 👋' : 'Join Printlet ✨'}
             </h2>
-            <p className="text-sm text-stone-600 mt-1 font-bold">
+            <p className="text-xs sm:text-sm text-stone-600 mt-1 font-bold">
               {isLogin ? 'Sign in to access your print dashboard' : 'Create an account to start printing on campus'}
             </p>
           </div>
@@ -135,7 +139,7 @@ export default function AuthPage() {
             {!isLogin && (
               <>
                 <div>
-                  <label className="block text-xs font-black text-stone-700 mb-1">
+                  <label className="block text-xs font-black text-stone-700 mb-1 uppercase tracking-wider">
                     FULL NAME
                   </label>
                   <input
@@ -144,12 +148,12 @@ export default function AuthPage() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Akshat"
-                    className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-bold text-stone-900"
+                    className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-base font-bold text-stone-900 placeholder:text-stone-400 placeholder:font-normal"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-stone-700 mb-1">
+                  <label className="block text-xs font-black text-stone-700 mb-1 uppercase tracking-wider">
                     WHATSAPP PHONE NUMBER
                   </label>
                   <input
@@ -158,14 +162,14 @@ export default function AuthPage() {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="7982239126 or +917982239126"
-                    className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-bold text-stone-900"
+                    className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-base font-bold text-stone-900 placeholder:text-stone-400 placeholder:font-normal"
                   />
                 </div>
               </>
             )}
 
             <div>
-              <label className="block text-xs font-black text-stone-700 mb-1">
+              <label className="block text-xs font-black text-stone-700 mb-1 uppercase tracking-wider">
                 EMAIL ADDRESS
               </label>
               <input
@@ -174,12 +178,12 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your.email@example.com"
-                className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-bold text-stone-900"
+                className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-base font-bold text-stone-900 placeholder:text-stone-400 placeholder:font-normal"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-black text-stone-700 mb-1">
+              <label className="block text-xs font-black text-stone-700 mb-1 uppercase tracking-wider">
                 PASSWORD
               </label>
               <input
@@ -188,14 +192,14 @@ export default function AuthPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm font-bold text-stone-900"
+                className="w-full px-4 py-3 bg-amber-50/60 rounded-2xl border border-orange-200 focus:outline-none focus:ring-2 focus:ring-orange-500 text-base font-bold text-stone-900 placeholder:text-stone-400 placeholder:font-normal"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 text-base font-black text-white bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 rounded-2xl shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:scale-101 transition-all disabled:opacity-50 mt-2"
+              className="w-full py-3.5 sm:py-4 text-base font-black text-white bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 rounded-2xl shadow-xl shadow-orange-500/30 hover:shadow-2xl hover:scale-101 transition-all disabled:opacity-50 mt-2"
             >
               {loading ? 'Processing...' : (isLogin ? 'Sign In ✨' : 'Create Account ✨')}
             </button>

@@ -4,13 +4,13 @@ import Link from 'next/link';
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header Bar */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 flex justify-between items-center">
-          <Link href="/" className="font-black text-2xl tracking-tight flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-orange-500 via-amber-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-md shadow-orange-500/30">
-              <span className="text-lg">🖨️</span>
+    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 py-6 sm:py-8 px-3 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
+        {/* Responsive Header Bar */}
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-200 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
+          <Link href="/" className="font-black text-xl sm:text-2xl tracking-tight flex items-center gap-2.5">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-tr from-orange-500 via-amber-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-md shadow-orange-500/30">
+              <span className="text-base sm:text-lg">🖨️</span>
             </div>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600 font-black">
               Printlet
@@ -19,23 +19,23 @@ export default function PrivacyPage() {
 
           <Link
             href="/dashboard"
-            className="px-5 py-2 text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
+            className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
           >
             ← Back to Dashboard
           </Link>
         </div>
 
         {/* Main Terms & Privacy Card */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-8 lg:p-10 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-8">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-6 sm:space-y-8">
           <div>
-            <span className="px-4 py-1.5 bg-orange-100 text-orange-800 font-extrabold text-xs rounded-full uppercase tracking-wider border border-orange-200">
+            <span className="px-3.5 py-1.5 bg-orange-100 text-orange-800 font-extrabold text-xs rounded-full uppercase tracking-wider border border-orange-200">
               Transparency & Policies
             </span>
-            <h1 className="text-4xl font-black text-stone-900 mt-3">
+            <h1 className="text-2xl sm:text-4xl font-black text-stone-900 mt-3">
               Privacy Policy & Service Terms
             </h1>
-            <p className="text-sm text-stone-600 font-medium mt-1">
-              Last updated: July 2026 • Black & White Campus Printing Service
+            <p className="text-xs sm:text-sm text-stone-600 font-medium mt-1">
+              Last updated: August 2026 • Black & White Campus Printing Service
             </p>
           </div>
 
@@ -43,10 +43,10 @@ export default function PrivacyPage() {
 
           {/* Section 1: Pickup Location & Slots */}
           <div className="space-y-3">
-            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 flex items-center gap-2">
               <span>📍 Pickup Location & Operating Slots</span>
             </h2>
-            <div className="bg-amber-50/80 p-5 rounded-2xl border border-amber-200 space-y-2 text-sm text-stone-700 font-medium leading-relaxed">
+            <div className="bg-amber-50/80 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-2 text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
               <p>
                 • <strong>Pickup Location:</strong> All printouts must be collected from <strong>Room 607</strong>.
               </p>
@@ -68,10 +68,10 @@ export default function PrivacyPage() {
 
           {/* Section 2: Delivery Timelines & Outage Policy */}
           <div className="space-y-3">
-            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 flex items-center gap-2">
               <span>🚚 Delivery Timelines & Outage Policy</span>
             </h2>
-            <div className="bg-orange-50/60 p-5 rounded-2xl border border-orange-200 space-y-2 text-sm text-stone-700 font-medium leading-relaxed">
+            <div className="bg-orange-50/60 p-4 sm:p-5 rounded-2xl border border-orange-200 space-y-2 text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
               <p>
                 • <strong>Service Format:</strong> We provide <strong>Black & White (B&W) printouts only</strong>.
               </p>
@@ -86,10 +86,10 @@ export default function PrivacyPage() {
 
           {/* Section 3: Privacy & Document Data Handling */}
           <div className="space-y-3">
-            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 flex items-center gap-2">
               <span>🔒 Document Privacy & Storage</span>
             </h2>
-            <div className="bg-amber-50/60 p-5 rounded-2xl border border-amber-200 space-y-2 text-sm text-stone-700 font-medium leading-relaxed">
+            <div className="bg-amber-50/60 p-4 sm:p-5 rounded-2xl border border-amber-200 space-y-2 text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
               <p>
                 • <strong>Strict Confidentiality:</strong> Your uploaded PDFs, Word documents, and images are used solely for the physical printing process.
               </p>
@@ -101,10 +101,10 @@ export default function PrivacyPage() {
 
           {/* Section 4: Payments & Refunds */}
           <div className="space-y-3">
-            <h2 className="text-2xl font-black text-stone-900 flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 flex items-center gap-2">
               <span>💳 Pricing, Payments & Refunds</span>
             </h2>
-            <div className="bg-rose-50/60 p-5 rounded-2xl border border-rose-200 space-y-2 text-sm text-stone-700 font-medium leading-relaxed">
+            <div className="bg-rose-50/60 p-4 sm:p-5 rounded-2xl border border-rose-200 space-y-2 text-xs sm:text-sm text-stone-700 font-medium leading-relaxed">
               <p>
                 • <strong>B&W Dynamic Pricing:</strong> Black & White printing rates start at <strong>₹4.00/page</strong> and scale down to <strong>₹3.50/page</strong> for volume orders (30+ pages). Optional stapling is ₹1.00 per batch.
               </p>
@@ -118,9 +118,9 @@ export default function PrivacyPage() {
           </div>
 
           {/* Section 5: Contact & Support */}
-          <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white p-6 rounded-2xl space-y-2 shadow-lg shadow-orange-500/20">
-            <h3 className="text-xl font-black">Need Help or Have Questions?</h3>
-            <p className="text-sm font-medium text-orange-50">
+          <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white p-5 sm:p-6 rounded-2xl space-y-2 shadow-lg shadow-orange-500/20">
+            <h3 className="text-lg sm:text-xl font-black">Need Help or Have Questions?</h3>
+            <p className="text-xs sm:text-sm font-medium text-orange-50">
               Contact operator directly at <a href="mailto:at6710@srmist.edu.in" className="underline font-bold text-white">at6710@srmist.edu.in</a> for urgent order assistance!
             </p>
           </div>

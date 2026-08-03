@@ -275,8 +275,8 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900">
-        <div className="bg-white/90 backdrop-blur-xl p-8 rounded-3xl border border-red-200 text-center max-w-md shadow-xl">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 px-4">
+        <div className="bg-white/90 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-red-200 text-center max-w-md shadow-xl w-full">
           <div className="text-5xl mb-4">⛔</div>
           <h1 className="text-2xl font-black text-red-600 mb-2">Access Denied</h1>
           <p className="text-stone-600 text-sm font-bold">You need administrator privileges to view this page.</p>
@@ -287,27 +287,27 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-amber-100/90 via-orange-50 to-rose-100/80 text-stone-900 py-6 sm:py-8 px-3 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Bar */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-orange-600 via-rose-600 to-amber-600">
               Admin Delivery & Operations ⚡
             </h1>
-            <p className="text-sm text-stone-600 mt-1 font-bold">Campus Dorm Printlet Network</p>
+            <p className="text-xs sm:text-sm text-stone-600 mt-1 font-bold">Campus Dorm Printlet Network</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
             <Link
               href="/privacy"
-              className="px-4 py-2 text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
+              className="px-3 py-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
             >
               Terms & Privacy
             </Link>
             <button
               onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
+              className="px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
             >
               Student Dashboard
             </button>
@@ -316,7 +316,7 @@ export default function AdminPage() {
                 supabase.auth.signOut();
                 router.replace('/auth');
               }}
-              className="px-4 py-2 text-sm font-bold text-red-700 bg-red-100 rounded-xl hover:bg-red-200 transition-colors border border-red-200"
+              className="px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-red-700 bg-red-100 rounded-xl hover:bg-red-200 transition-colors border border-red-200"
             >
               Logout
             </button>
@@ -324,10 +324,10 @@ export default function AdminPage() {
         </div>
 
         {/* Site Status / Service Outage Control Panel */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-black text-stone-900 flex flex-wrap items-center gap-2">
                 <span>⚙️ Service Status & Outage Control</span>
                 <span className={`px-3 py-1 rounded-full text-xs font-black ${
                   siteIsClosed
@@ -342,12 +342,12 @@ export default function AdminPage() {
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="w-full sm:w-auto">
               {siteIsClosed ? (
                 <button
                   onClick={() => handleToggleSiteStatus(false)}
                   disabled={statusUpdating}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-xl transition-all shadow-md"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md text-center"
                 >
                   {statusUpdating ? 'Updating...' : '🟢 Re-Open Service (Normal Mode)'}
                 </button>
@@ -355,7 +355,7 @@ export default function AdminPage() {
                 <button
                   onClick={() => handleToggleSiteStatus(true)}
                   disabled={statusUpdating}
-                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-sm rounded-xl transition-all shadow-md"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md text-center"
                 >
                   {statusUpdating ? 'Updating...' : '🔴 Mark Site as Closed (Outage Mode)'}
                 </button>
@@ -377,51 +377,51 @@ export default function AdminPage() {
               value={siteMessage}
               onChange={(e) => setSiteMessage(e.target.value)}
               rows={2}
-              className="w-full p-3 bg-stone-50 border border-orange-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:outline-none"
+              className="w-full p-3 bg-stone-50 border border-orange-200 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Financial & Operational Analytics Cards */}
         {stats && (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-orange-200 shadow-md">
-              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Gross Revenue</p>
-              <p className="text-2xl font-black text-stone-900 mt-1">₹{stats.grossRevenue}</p>
-              <p className="text-xs text-stone-500 mt-1 font-medium">All Paid Orders</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-orange-200 shadow-md">
+              <p className="text-[10px] sm:text-xs text-stone-500 font-bold uppercase tracking-wider">Gross Revenue</p>
+              <p className="text-xl sm:text-2xl font-black text-stone-900 mt-1">₹{stats.grossRevenue}</p>
+              <p className="text-[11px] text-stone-500 mt-1 font-medium">All Paid Orders</p>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md">
-              <p className="text-xs text-emerald-700 font-bold uppercase tracking-wider">Net Profit 📈</p>
-              <p className="text-2xl font-black text-emerald-600 mt-1">₹{stats.netProfit}</p>
-              <p className="text-xs text-emerald-800 mt-1 font-medium">After Fees & Paper Cost</p>
+            <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-emerald-300 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-md">
+              <p className="text-[10px] sm:text-xs text-emerald-700 font-bold uppercase tracking-wider">Net Profit 📈</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">₹{stats.netProfit}</p>
+              <p className="text-[11px] text-emerald-800 mt-1 font-medium">After Fees & Paper</p>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-orange-200 shadow-md">
-              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Total Pages</p>
-              <p className="text-2xl font-black text-orange-600 mt-1">{stats.totalPages}</p>
-              <p className="text-xs text-stone-500 mt-1 font-medium">Paper Cost: ₹{stats.printCost}</p>
+            <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-orange-200 shadow-md">
+              <p className="text-[10px] sm:text-xs text-stone-500 font-bold uppercase tracking-wider">Total Pages</p>
+              <p className="text-xl sm:text-2xl font-black text-orange-600 mt-1">{stats.totalPages}</p>
+              <p className="text-[11px] text-stone-500 mt-1 font-medium">Paper Cost: ₹{stats.printCost}</p>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-orange-200 shadow-md">
-              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">Queue to Deliver</p>
-              <p className="text-2xl font-black text-rose-600 mt-1">{stats.pendingDeliveriesCount}</p>
-              <p className="text-xs text-stone-500 mt-1 font-medium">{stats.readyDeliveriesCount} Printed & Ready</p>
+            <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-orange-200 shadow-md">
+              <p className="text-[10px] sm:text-xs text-stone-500 font-bold uppercase tracking-wider">Queue to Deliver</p>
+              <p className="text-xl sm:text-2xl font-black text-rose-600 mt-1">{stats.pendingDeliveriesCount}</p>
+              <p className="text-[11px] text-stone-500 mt-1 font-medium">{stats.readyDeliveriesCount} Printed</p>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xl p-5 rounded-3xl border border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-md">
-              <p className="text-xs text-purple-700 font-bold uppercase tracking-wider">Completed (10d) ✅</p>
-              <p className="text-2xl font-black text-purple-600 mt-1">{stats.deliveredCount || deliveredOrders.length}</p>
-              <p className="text-xs text-purple-800 mt-1 font-medium">Delivered Orders</p>
+            <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 shadow-md col-span-2 sm:col-span-1">
+              <p className="text-[10px] sm:text-xs text-purple-700 font-bold uppercase tracking-wider">Completed (10d) ✅</p>
+              <p className="text-xl sm:text-2xl font-black text-purple-600 mt-1">{stats.deliveredCount || deliveredOrders.length}</p>
+              <p className="text-[11px] text-purple-800 mt-1 font-medium">Delivered Orders</p>
             </div>
           </div>
         )}
 
         {/* Direct Admin Free Print Panel */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-black text-stone-900 flex items-center gap-2">
                 <span>⚡ Admin Free Print Panel</span>
               </h2>
               <p className="text-xs text-stone-600 font-bold mt-0.5">Upload any document to print instantly on dorm printer without payment</p>
@@ -458,20 +458,20 @@ export default function AdminPage() {
               id="admin-file-input"
             />
             <label htmlFor="admin-file-input" className="cursor-pointer block">
-              <p className="font-bold text-stone-900">Click or Drag Admin Files to Print Immediately</p>
+              <p className="font-bold text-xs sm:text-sm text-stone-900">Click or Drag Admin Files to Print Immediately</p>
               <p className="text-xs text-stone-500 mt-1 font-medium">PDF, DOCX, PNG, JPG (Multi-file supported)</p>
             </label>
           </div>
 
           {adminFiles.length > 0 && (
-            <div className="flex justify-between items-center bg-amber-50 p-3 rounded-xl text-sm border border-amber-200">
-              <span className="font-semibold">{adminFiles.length} file(s) selected: {adminFiles.map(f => f.name).join(', ')}</span>
-              <button onClick={() => setAdminFiles([])} className="text-red-500 font-bold text-xs">Clear</button>
+            <div className="flex justify-between items-center bg-amber-50 p-3 rounded-xl text-xs sm:text-sm border border-amber-200">
+              <span className="font-semibold truncate max-w-xs">{adminFiles.length} file(s) selected: {adminFiles.map(f => f.name).join(', ')}</span>
+              <button onClick={() => setAdminFiles([])} className="text-red-500 font-bold text-xs shrink-0 ml-2">Clear</button>
             </div>
           )}
 
-          <div className="flex items-center gap-4 pt-2">
-            <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold cursor-pointer">
               <input
                 type="checkbox"
                 checked={adminStaple}
@@ -484,7 +484,7 @@ export default function AdminPage() {
             <button
               onClick={handleAdminUpload}
               disabled={adminUploading || adminFiles.length === 0}
-              className="px-6 py-2.5 font-black text-sm text-white bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 rounded-xl shadow-md hover:scale-105 transition-all disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-2.5 font-black text-xs sm:text-sm text-white bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 rounded-xl shadow-md hover:scale-105 transition-all disabled:opacity-50 text-center"
             >
               {adminUploading ? 'Sending to Queue...' : 'Print Free (Send to Queue) ✨'}
             </button>
@@ -492,86 +492,88 @@ export default function AdminPage() {
         </div>
 
         {/* Section 1: Active Campus Delivery Queue Table */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-2xl font-black text-stone-900 mb-6 flex items-center gap-2">
-              <span>🚚 Active Campus Delivery Queue</span>
-              <span className="text-sm font-bold px-3 py-1 bg-orange-100 text-orange-800 rounded-full">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">
+          <div className="p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 mb-4 sm:mb-6 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span>🚚 Active Queue</span>
+              </span>
+              <span className="text-xs sm:text-sm font-bold px-3 py-1 bg-orange-100 text-orange-800 rounded-full">
                 {orders.length} Pending
               </span>
             </h2>
 
             {orders.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-stone-600 text-lg font-bold">All active orders have been delivered! 🎉</p>
+              <div className="text-center py-8 sm:py-12">
+                <p className="text-stone-600 text-base sm:text-lg font-bold">All active orders have been delivered! 🎉</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="border-b border-orange-200">
-                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Customer</th>
-                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Document(s)</th>
-                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Pages</th>
-                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Staple</th>
-                      <th className="text-right py-3 px-4 text-sm font-bold text-stone-700">Amount Paid</th>
-                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Pickup Time</th>
-                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Status</th>
-                      <th className="text-right py-3 px-4 text-sm font-bold text-stone-700">Actions</th>
+                      <th className="text-left py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Customer</th>
+                      <th className="text-left py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Document(s)</th>
+                      <th className="text-center py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Pages</th>
+                      <th className="text-center py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Staple</th>
+                      <th className="text-right py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Amount Paid</th>
+                      <th className="text-left py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Pickup Time</th>
+                      <th className="text-center py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Status</th>
+                      <th className="text-right py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {orders.map((order) => (
                       <tr key={order.id} className="border-b border-orange-100 hover:bg-amber-50/60 transition-colors">
-                        <td className="py-4 px-4">
+                        <td className="py-3 px-3">
                           <div>
-                            <p className="font-bold text-stone-900">
-                              {order.profiles?.full_name || 'Guest / Pre-Auth Order'}
+                            <p className="font-bold text-xs sm:text-sm text-stone-900">
+                              {order.profiles?.full_name || 'Guest Order'}
                             </p>
-                            <p className="text-sm text-orange-600 font-mono font-bold">
-                              {order.profiles?.phone_number || 'No phone recorded'}
+                            <p className="text-xs text-orange-600 font-mono font-bold">
+                              {order.profiles?.phone_number || 'No phone'}
                             </p>
                           </div>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm font-bold text-stone-900">
+                        <td className="py-3 px-3">
+                          <p className="text-xs sm:text-sm font-bold text-stone-900 truncate max-w-[150px]">
                             {order.file_name || 'Document'}
                           </p>
-                          <p className="text-xs text-stone-500 font-mono">ID: {order.id.slice(0, 8)}</p>
+                          <p className="text-[10px] text-stone-500 font-mono">ID: {order.id.slice(0, 8)}</p>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className="font-bold text-stone-900">
+                        <td className="py-3 px-3 text-center">
+                          <span className="font-bold text-xs sm:text-sm text-stone-900">
                             {order.page_count}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-3 px-3 text-center">
                           {order.requires_staple ? (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-black flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                            <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-[11px] font-black inline-flex items-center justify-center gap-1 shadow-sm whitespace-nowrap">
                               📌 Stapled (+₹1)
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 text-stone-400 text-xs font-bold">
+                            <span className="text-stone-400 text-xs font-bold">
                               No Staple
                             </span>
                           )}
                         </td>
-                        <td className="py-4 px-4 text-right">
-                          <span className="font-black text-emerald-600">
+                        <td className="py-3 px-3 text-right">
+                          <span className="font-black text-xs sm:text-sm text-emerald-600">
                             ₹{(order.total_amount / 100).toFixed(2)}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm font-bold text-stone-900">
+                        <td className="py-3 px-3">
+                          <p className="text-xs sm:text-sm font-bold text-stone-900">
                             {new Date(order.pickup_time).toLocaleDateString('en-IN', {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric'
                             })}
                           </p>
-                          <p className="text-xs text-stone-500 font-bold">10:40 AM / 12:30 PM</p>
+                          <p className="text-[10px] text-stone-500 font-bold">10:40 AM / 12:30 PM</p>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className={`px-3.5 py-1 rounded-full text-xs font-black ${
+                        <td className="py-3 px-3 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black whitespace-nowrap ${
                             order.status === 'PRINTED'
                               ? 'bg-rose-100 text-rose-800 border border-rose-200'
                               : 'bg-orange-100 text-orange-800 border border-orange-200'
@@ -579,8 +581,8 @@ export default function AdminPage() {
                             {order.status}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="py-3 px-3">
+                          <div className="flex items-center justify-end gap-1.5">
                             {order.profiles?.phone_number && (
                               <a
                                 href={getWhatsAppLink(
@@ -590,14 +592,14 @@ export default function AdminPage() {
                                 )}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1 shadow-sm"
+                                className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap"
                               >
                                 WhatsApp
                               </a>
                             )}
                             <button
                               onClick={() => markAsDelivered(order.id)}
-                              className="px-3.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+                              className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold rounded-lg transition-colors shadow-sm whitespace-nowrap"
                             >
                               Mark Delivered
                             </button>
@@ -613,75 +615,77 @@ export default function AdminPage() {
         </div>
 
         {/* Section 2: Delivered Order History Table (Last 10 Days) */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-2xl font-black text-stone-900 mb-6 flex items-center gap-2">
-              <span>✅ Delivered Orders History (Last 10 Days)</span>
-              <span className="text-sm font-bold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">
+          <div className="p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-black text-stone-900 mb-4 sm:mb-6 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <span>✅ Delivered Orders (Last 10 Days)</span>
+              </span>
+              <span className="text-xs sm:text-sm font-bold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">
                 {deliveredOrders.length} Completed
               </span>
             </h2>
 
             {deliveredOrders.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-stone-500 text-sm font-bold">No orders marked as delivered in the last 10 days.</p>
+              <div className="text-center py-8">
+                <p className="text-stone-500 text-xs sm:text-sm font-bold">No orders marked as delivered in the last 10 days.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                <table className="w-full min-w-[700px]">
                   <thead>
                     <tr className="border-b border-orange-200">
-                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Customer</th>
-                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Document(s)</th>
-                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Pages</th>
-                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Staple</th>
-                      <th className="text-right py-3 px-4 text-sm font-bold text-stone-700">Amount Paid</th>
-                      <th className="text-left py-3 px-4 text-sm font-bold text-stone-700">Delivered On</th>
-                      <th className="text-center py-3 px-4 text-sm font-bold text-stone-700">Status</th>
+                      <th className="text-left py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Customer</th>
+                      <th className="text-left py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Document(s)</th>
+                      <th className="text-center py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Pages</th>
+                      <th className="text-center py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Staple</th>
+                      <th className="text-right py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Amount Paid</th>
+                      <th className="text-left py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Delivered On</th>
+                      <th className="text-center py-3 px-3 text-xs sm:text-sm font-bold text-stone-700">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {deliveredOrders.map((order) => (
                       <tr key={order.id} className="border-b border-stone-100 hover:bg-emerald-50/40 transition-colors">
-                        <td className="py-4 px-4">
+                        <td className="py-3 px-3">
                           <div>
-                            <p className="font-bold text-stone-900">
+                            <p className="font-bold text-xs sm:text-sm text-stone-900">
                               {order.profiles?.full_name || 'Student Order'}
                             </p>
-                            <p className="text-sm text-stone-500 font-mono">
-                              {order.profiles?.phone_number || 'No phone recorded'}
+                            <p className="text-xs text-stone-500 font-mono">
+                              {order.profiles?.phone_number || 'No phone'}
                             </p>
                           </div>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm font-bold text-stone-900">
+                        <td className="py-3 px-3">
+                          <p className="text-xs sm:text-sm font-bold text-stone-900 truncate max-w-[150px]">
                             {order.file_name || 'Document'}
                           </p>
-                          <p className="text-xs text-stone-400 font-mono">ID: {order.id.slice(0, 8)}</p>
+                          <p className="text-[10px] text-stone-400 font-mono">ID: {order.id.slice(0, 8)}</p>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className="font-bold text-stone-800">
+                        <td className="py-3 px-3 text-center">
+                          <span className="font-bold text-xs sm:text-sm text-stone-800">
                             {order.page_count}
                           </span>
                         </td>
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-3 px-3 text-center">
                           {order.requires_staple ? (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-xs font-black flex items-center justify-center gap-1 w-fit mx-auto shadow-sm">
+                            <span className="px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-full text-[11px] font-black inline-flex items-center justify-center gap-1 shadow-sm whitespace-nowrap">
                               📌 Stapled (+₹1)
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 text-stone-400 text-xs font-bold">
+                            <span className="text-stone-400 text-xs font-bold">
                               No Staple
                             </span>
                           )}
                         </td>
-                        <td className="py-4 px-4 text-right">
-                          <span className="font-black text-emerald-600">
+                        <td className="py-3 px-3 text-right">
+                          <span className="font-black text-xs sm:text-sm text-emerald-600">
                             ₹{(order.total_amount / 100).toFixed(2)}
                           </span>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm font-bold text-stone-800">
+                        <td className="py-3 px-3">
+                          <p className="text-xs sm:text-sm font-bold text-stone-800">
                             {new Date(order.updated_at || order.created_at).toLocaleDateString('en-IN', {
                               weekday: 'short',
                               month: 'short',
@@ -691,8 +695,8 @@ export default function AdminPage() {
                             })}
                           </p>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <span className="px-3.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <td className="py-3 px-3 text-center">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
                             DELIVERED
                           </span>
                         </td>
