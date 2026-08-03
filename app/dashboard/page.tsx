@@ -349,6 +349,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <a
+                href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 text-xs sm:text-sm font-bold text-emerald-700 hover:text-emerald-900 transition-colors flex items-center gap-1"
+              >
+                <span>💬 WhatsApp Group</span>
+              </a>
               <Link
                 href="/privacy"
                 className="px-3 py-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
@@ -380,9 +388,19 @@ export default function DashboardPage() {
 
           {/* Permanent Collection & Location Card */}
           <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-orange-200 shadow-lg shadow-orange-500/5 space-y-3">
-            <div className="flex items-center gap-2 text-orange-800 font-black text-base sm:text-lg">
-              <span>📍</span>
-              <span>Pickup Information & Slots — Room 607</span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-orange-800 font-black text-base sm:text-lg">
+                <span>📍</span>
+                <span>Pickup Information & Slots — Room 607</span>
+              </div>
+              <a
+                href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-black hover:bg-emerald-700 transition-all shadow-sm w-fit"
+              >
+                <span>💬 Join WhatsApp Group for Updates</span>
+              </a>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm font-medium text-stone-700">
@@ -447,14 +465,17 @@ export default function DashboardPage() {
                     <span className="font-black text-emerald-600 text-sm sm:text-base">₹{paymentSuccess.amount.toFixed(2)}</span>
                   </div>
 
-                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-bold text-stone-800 space-y-1">
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-bold text-stone-800 space-y-1.5">
                     <p className="text-emerald-800 text-xs sm:text-sm font-black flex items-center gap-1.5">
                       <span>📍</span>
                       <span>Collection Instructions (Room 607)</span>
                     </p>
                     <p>• <strong>Pickup Location:</strong> Room 607</p>
                     <p>• <strong>Daily Slots:</strong> 10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM</p>
-                    <p>• <strong>Contact:</strong> <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline">at6710@srmist.edu.in</a></p>
+                    <p>• <strong>Contact Email:</strong> <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline">at6710@srmist.edu.in</a></p>
+                    <p className="pt-1">
+                      💬 <a href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM" target="_blank" rel="noopener noreferrer" className="text-emerald-700 underline font-black">Join WhatsApp Community Group for Live Order Updates</a>
+                    </p>
                   </div>
 
                   <div className="p-2.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs font-bold">

@@ -17,12 +17,22 @@ export default function PrivacyPage() {
             </span>
           </Link>
 
-          <Link
-            href="/dashboard"
-            className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
-          >
-            ← Back to Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-1"
+            >
+              <span>💬 WhatsApp Group</span>
+            </a>
+            <Link
+              href="/dashboard"
+              className="px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-stone-800 bg-orange-100 rounded-xl hover:bg-orange-200 transition-colors border border-orange-200"
+            >
+              ← Back to Dashboard
+            </Link>
+          </div>
         </div>
 
         {/* Main Terms & Privacy Card */}
@@ -59,6 +69,9 @@ export default function PrivacyPage() {
               </p>
               <p>
                 • <strong>Operator Contact Email:</strong> <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline font-bold">at6710@srmist.edu.in</a>
+              </p>
+              <p>
+                • <strong>Official WhatsApp Group:</strong> <a href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM" target="_blank" rel="noopener noreferrer" className="text-emerald-700 underline font-bold">Join Printlet WhatsApp Group</a> for live announcements.
               </p>
               <p className="p-3 bg-amber-100 border border-amber-300 text-amber-950 rounded-xl font-bold mt-2">
                 ⚠️ <strong>Important Disclaimer:</strong> If you do not collect your printouts during the designated slots (10:40–10:50 AM or 12:30–1:20 PM in Room 607) or fail to contact us at <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printouts will automatically be delayed to the next working day.
@@ -121,7 +134,7 @@ export default function PrivacyPage() {
           <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white p-5 sm:p-6 rounded-2xl space-y-2 shadow-lg shadow-orange-500/20">
             <h3 className="text-lg sm:text-xl font-black">Need Help or Have Questions?</h3>
             <p className="text-xs sm:text-sm font-medium text-orange-50">
-              Contact operator directly at <a href="mailto:at6710@srmist.edu.in" className="underline font-bold text-white">at6710@srmist.edu.in</a> for urgent order assistance!
+              Join our official <a href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM" target="_blank" rel="noopener noreferrer" className="underline font-bold text-white">WhatsApp Updates Group</a> for live announcements & community support, or email <a href="mailto:at6710@srmist.edu.in" className="underline font-bold text-white">at6710@srmist.edu.in</a>!
             </p>
           </div>
         </div>

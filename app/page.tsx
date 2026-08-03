@@ -75,6 +75,26 @@ export default function Home() {
           </div>
         )}
 
+        {/* WhatsApp Community Invite Banner */}
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-300 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl shrink-0">💬</span>
+            <div>
+              <p className="font-extrabold text-sm sm:text-base text-emerald-950">Join our Official WhatsApp Community!</p>
+              <p className="text-xs sm:text-sm font-medium text-emerald-800">Get live print status updates, operational notices, & instant support.</p>
+            </div>
+          </div>
+          <a
+            href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5"
+          >
+            <span>Join WhatsApp Group</span>
+            <span>→</span>
+          </a>
+        </div>
+
         {/* Responsive Navbar */}
         <header className="flex flex-col sm:flex-row justify-between items-center mb-8 sm:mb-12 bg-white/90 backdrop-blur-xl px-4 sm:px-6 py-4 rounded-2xl sm:rounded-3xl border border-orange-200 shadow-xl shadow-orange-500/10 gap-3 sm:gap-4">
           <Link href="/" className="font-black text-xl sm:text-2xl tracking-tight flex items-center gap-2.5">
@@ -87,6 +107,14 @@ export default function Home() {
           </Link>
 
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+            <a
+              href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 text-xs sm:text-sm font-bold text-emerald-700 hover:text-emerald-900 transition-colors flex items-center gap-1"
+            >
+              <span>💬 WhatsApp Group</span>
+            </a>
             <Link
               href="/privacy"
               className="px-3 py-2 text-xs sm:text-sm font-bold text-stone-700 hover:text-stone-900 transition-colors"
@@ -184,7 +212,7 @@ export default function Home() {
             </div>
             <h3 className="text-xl sm:text-2xl font-black text-stone-900 mb-2">Room 607 Collection</h3>
             <p className="text-stone-600 leading-relaxed text-xs sm:text-sm font-medium">
-              Collect in Room 607 between 10:40–10:50 AM or 12:30–1:20 PM. Contact <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline font-bold">at6710@srmist.edu.in</a> for queries.
+              Collect in Room 607 between 10:40–10:50 AM or 12:30–1:20 PM. Join our <a href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline font-bold">WhatsApp Group</a> for updates!
             </p>
           </div>
         </section>
@@ -289,7 +317,10 @@ export default function Home() {
         {/* Footer */}
         <footer className="flex flex-col sm:flex-row justify-between items-center py-6 sm:py-8 text-xs text-stone-500 font-bold border-t border-orange-200/60 gap-3 text-center sm:text-left">
           <p>© {new Date().getFullYear()} Printlet — Black & White Campus Printing Service. Contact: <a href="mailto:at6710@srmist.edu.in" className="underline hover:text-stone-800">at6710@srmist.edu.in</a></p>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4 justify-center sm:justify-end">
+            <a href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM" target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:text-emerald-900 transition-colors">
+              💬 WhatsApp Updates Group
+            </a>
             <Link href="/privacy" className="hover:text-stone-900 transition-colors">
               Privacy Policy & Delivery Terms
             </Link>
