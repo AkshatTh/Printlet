@@ -36,38 +36,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch active paid orders waiting to be printed/delivered
-    const { data: orders, error: ordersError } = await supabaseAdmin
+    // Fetch all active orders
+    const { data: allOrdersData, error: ordersError } = await supabaseAdmin
       .from('orders')
-      .select(`
-        id,
-        file_url,
-        file_path,
-        file_name,
-        page_count,
-        requires_staple,
-        status,
-        created_at,
-        profiles (
-          full_name,
-          phone_number
-        )
-      `)
-      .in('status', ['PAID', 'PRINTED'])
+      .select('*')
       .order('created_at', { ascending: true });
 
     if (ordersError) {
+      console.error('Batch PDF orders DB error:', ordersError);
       return NextResponse.json(
         { error: 'Database error fetching orders', details: ordersError.message },
         { status: 500 }
       );
     }
 
-    if (!orders || orders.length === 0) {
+    // Filter active paid orders (PAID or PRINTED, excluding DELIVERED)
+    const activeOrders = (allOrdersData || []).filter(order => {
+      const currentStatus = order.status || order.payment_status;
+      return currentStatus === 'PAID' || currentStatus === 'PRINTED';
+    });
+
+    if (activeOrders.length === 0) {
       return NextResponse.json(
         { error: 'No active paid orders found in queue for batch download.' },
         { status: 404 }
       );
+    }
+
+    // Fetch user profiles map for names & phone numbers
+    const userIds = Array.from(new Set(activeOrders.map(o => o.user_id).filter(Boolean)));
+    let profilesMap: Record<string, { full_name: string; phone_number: string }> = {};
+
+    if (userIds.length > 0) {
+      const { data: profilesData } = await supabaseAdmin
+        .from('profiles')
+        .select('id, full_name, phone_number')
+        .in('id', userIds);
+
+      if (profilesData) {
+        profilesData.forEach(p => {
+          profilesMap[p.id] = {
+            full_name: p.full_name,
+            phone_number: p.phone_number,
+          };
+        });
+      }
     }
 
     // Create a new master PDF document
@@ -75,14 +88,14 @@ export async function GET(request: NextRequest) {
     const font = await masterPdf.embedFont(StandardFonts.HelveticaBold);
     let mergedFilesCount = 0;
 
-    for (const order of orders) {
+    for (const order of activeOrders) {
       const rawPathStr = order.file_url || order.file_path || order.file_name;
       if (!rawPathStr) continue;
 
-      // Handle comma-separated filenames for multi-file orders
-      const rawFileList = rawPathStr.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const profile = order.user_id ? profilesMap[order.user_id] : null;
+      const fileList = String(rawPathStr).split(',').map((s: string) => s.trim()).filter(Boolean);
 
-      for (let filePath of rawFileList) {
+      for (let filePath of fileList) {
         // Clean URL if full Supabase URL was passed
         if (filePath.includes('/print-jobs/')) {
           filePath = filePath.split('/print-jobs/').pop() || filePath;
@@ -111,9 +124,8 @@ export async function GET(request: NextRequest) {
 
           if (downloadError || !fileBlob) {
             console.error(`Failed to download file ${filePath}:`, downloadError);
-            // Insert error placeholder page so batch continues smoothly
             const errPage = masterPdf.addPage([600, 400]);
-            errPage.drawText(`[PRINTLET NOTICE] File Download Pending: ${order.file_name || filePath}`, {
+            errPage.drawText(`[PRINTLET NOTICE] Download Pending: ${order.file_name || filePath}`, {
               x: 50,
               y: 200,
               size: 14,
@@ -150,16 +162,15 @@ export async function GET(request: NextRequest) {
             });
             mergedFilesCount++;
           } else {
-            // DOCX or unsupported format: Add informative placeholder page
+            // Word / docx / unsupported format page placeholder
             const docxPage = masterPdf.addPage([600, 400]);
-            docxPage.drawText(`DOCX / WORD DOCUMENT: ${order.file_name || filePath}`, {
+            docxPage.drawText(`WORD / OTHER DOCUMENT: ${order.file_name || filePath}`, {
               x: 50,
               y: 250,
               size: 16,
               font,
               color: rgb(0.1, 0.1, 0.1),
             });
-            const profile: any = Array.isArray(order.profiles) ? order.profiles[0] : order.profiles;
             docxPage.drawText(`Customer: ${profile?.full_name || 'Student'} (${profile?.phone_number || ''})`, {
               x: 50,
               y: 210,
@@ -167,20 +178,12 @@ export async function GET(request: NextRequest) {
               font,
               color: rgb(0.3, 0.3, 0.3),
             });
-            docxPage.drawText(`Note: Word documents (.docx) can be opened and printed separately from phone/laptop.`, {
-              x: 50,
-              y: 170,
-              size: 11,
-              font,
-              color: rgb(0.5, 0.5, 0.5),
-            });
             mergedFilesCount++;
           }
         } catch (docErr) {
-          console.error(`Error merging file ${filePath} for order ${order.id}:`, docErr);
-          // Add fallback page so batch does not fail
+          console.error(`Error processing file ${filePath} for order ${order.id}:`, docErr);
           const fallbackPage = masterPdf.addPage([600, 400]);
-          fallbackPage.drawText(`DOCUMENT PROCESSING NOTICE: ${order.file_name || filePath}`, {
+          fallbackPage.drawText(`NOTICE: ${order.file_name || filePath}`, {
             x: 50,
             y: 200,
             size: 14,
@@ -194,7 +197,7 @@ export async function GET(request: NextRequest) {
 
     if (mergedFilesCount === 0) {
       return NextResponse.json(
-        { error: 'Could not process PDF files from the current queue. Check if files exist in storage.' },
+        { error: 'Could not process PDF files from current queue.' },
         { status: 500 }
       );
     }
@@ -209,8 +212,9 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `attachment; filename="Printlet_Batch_${todayStr}.pdf"`,
       },
     });
+
   } catch (error) {
-    console.error('Batch PDF generation error:', error);
+    console.error('Batch PDF error:', error);
     return NextResponse.json(
       { error: 'Failed to generate batch PDF', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
