@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       .from('orders')
       .select(`
         id,
+        file_url,
         file_path,
         file_name,
         page_count,
@@ -68,50 +69,75 @@ export async function GET(request: NextRequest) {
 
     // Create a new master PDF document
     const masterPdf = await PDFDocument.create();
+    let mergedFilesCount = 0;
 
     for (const order of orders) {
-      if (!order.file_path) continue;
+      const rawPathStr = order.file_url || order.file_path;
+      if (!rawPathStr) continue;
 
-      try {
-        // Download document file from Supabase Storage
-        const { data: fileBlob, error: downloadError } = await supabaseAdmin.storage
-          .from('print-files')
-          .download(order.file_path);
+      // Handle comma-separated filenames for multi-file orders
+      const fileList = rawPathStr.split(',').map((s: string) => s.trim()).filter(Boolean);
 
-        if (downloadError || !fileBlob) {
-          console.error(`Failed to download file ${order.file_path}:`, downloadError);
-          continue;
-        }
+      for (const filePath of fileList) {
+        try {
+          // Download document file from Supabase Storage bucket 'print-jobs'
+          let { data: fileBlob, error: downloadError } = await supabaseAdmin.storage
+            .from('print-jobs')
+            .download(filePath);
 
-        const fileArrayBuffer = await fileBlob.arrayBuffer();
-        const lowerPath = (order.file_path || order.file_name || '').toLowerCase();
-
-        if (lowerPath.endsWith('.pdf')) {
-          // Load PDF and copy all pages
-          const srcPdf = await PDFDocument.load(fileArrayBuffer, { ignoreEncryption: true });
-          const pageIndices = srcPdf.getPageIndices();
-          const copiedPages = await masterPdf.copyPages(srcPdf, pageIndices);
-          copiedPages.forEach((page) => masterPdf.addPage(page));
-        } else if (lowerPath.endsWith('.png') || lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) {
-          // Embed image into a new page
-          let embeddedImage;
-          if (lowerPath.endsWith('.png')) {
-            embeddedImage = await masterPdf.embedPng(fileArrayBuffer);
-          } else {
-            embeddedImage = await masterPdf.embedJpg(fileArrayBuffer);
+          // Fallback check in 'print-files' bucket if not found
+          if (downloadError || !fileBlob) {
+            const fallback = await supabaseAdmin.storage
+              .from('print-files')
+              .download(filePath);
+            if (!fallback.error && fallback.data) {
+              fileBlob = fallback.data;
+              downloadError = null;
+            }
           }
 
-          const page = masterPdf.addPage([embeddedImage.width, embeddedImage.height]);
-          page.drawImage(embeddedImage, {
-            x: 0,
-            y: 0,
-            width: embeddedImage.width,
-            height: embeddedImage.height,
-          });
+          if (downloadError || !fileBlob) {
+            console.error(`Failed to download file ${filePath}:`, downloadError);
+            continue;
+          }
+
+          const fileArrayBuffer = await fileBlob.arrayBuffer();
+          const lowerPath = filePath.toLowerCase();
+
+          if (lowerPath.endsWith('.pdf')) {
+            const srcPdf = await PDFDocument.load(fileArrayBuffer, { ignoreEncryption: true });
+            const pageIndices = srcPdf.getPageIndices();
+            const copiedPages = await masterPdf.copyPages(srcPdf, pageIndices);
+            copiedPages.forEach((page) => masterPdf.addPage(page));
+            mergedFilesCount++;
+          } else if (lowerPath.endsWith('.png') || lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) {
+            let embeddedImage;
+            if (lowerPath.endsWith('.png')) {
+              embeddedImage = await masterPdf.embedPng(fileArrayBuffer);
+            } else {
+              embeddedImage = await masterPdf.embedJpg(fileArrayBuffer);
+            }
+
+            const page = masterPdf.addPage([embeddedImage.width, embeddedImage.height]);
+            page.drawImage(embeddedImage, {
+              x: 0,
+              y: 0,
+              width: embeddedImage.width,
+              height: embeddedImage.height,
+            });
+            mergedFilesCount++;
+          }
+        } catch (docErr) {
+          console.error(`Error merging file ${filePath} for order ${order.id}:`, docErr);
         }
-      } catch (docErr) {
-        console.error(`Error merging order ${order.id}:`, docErr);
       }
+    }
+
+    if (mergedFilesCount === 0) {
+      return NextResponse.json(
+        { error: 'Could not process PDF files from the current queue. Check if files exist in storage.' },
+        { status: 500 }
+      );
     }
 
     const pdfBytes = await masterPdf.save();
