@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,7 +57,10 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true });
 
     if (ordersError) {
-      throw new Error(`Failed to fetch batch orders: ${ordersError.message}`);
+      return NextResponse.json(
+        { error: 'Database error fetching orders', details: ordersError.message },
+        { status: 500 }
+      );
     }
 
     if (!orders || orders.length === 0) {
@@ -69,16 +72,26 @@ export async function GET(request: NextRequest) {
 
     // Create a new master PDF document
     const masterPdf = await PDFDocument.create();
+    const font = await masterPdf.embedFont(StandardFonts.HelveticaBold);
     let mergedFilesCount = 0;
 
     for (const order of orders) {
-      const rawPathStr = order.file_url || order.file_path;
+      const rawPathStr = order.file_url || order.file_path || order.file_name;
       if (!rawPathStr) continue;
 
       // Handle comma-separated filenames for multi-file orders
-      const fileList = rawPathStr.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const rawFileList = rawPathStr.split(',').map((s: string) => s.trim()).filter(Boolean);
 
-      for (const filePath of fileList) {
+      for (let filePath of rawFileList) {
+        // Clean URL if full Supabase URL was passed
+        if (filePath.includes('/print-jobs/')) {
+          filePath = filePath.split('/print-jobs/').pop() || filePath;
+        } else if (filePath.includes('/print-files/')) {
+          filePath = filePath.split('/print-files/').pop() || filePath;
+        } else if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+          filePath = filePath.split('/').pop() || filePath;
+        }
+
         try {
           // Download document file from Supabase Storage bucket 'print-jobs'
           let { data: fileBlob, error: downloadError } = await supabaseAdmin.storage
@@ -98,6 +111,16 @@ export async function GET(request: NextRequest) {
 
           if (downloadError || !fileBlob) {
             console.error(`Failed to download file ${filePath}:`, downloadError);
+            // Insert error placeholder page so batch continues smoothly
+            const errPage = masterPdf.addPage([600, 400]);
+            errPage.drawText(`[PRINTLET NOTICE] File Download Pending: ${order.file_name || filePath}`, {
+              x: 50,
+              y: 200,
+              size: 14,
+              font,
+              color: rgb(0.8, 0.1, 0.1),
+            });
+            mergedFilesCount++;
             continue;
           }
 
@@ -126,9 +149,45 @@ export async function GET(request: NextRequest) {
               height: embeddedImage.height,
             });
             mergedFilesCount++;
+          } else {
+            // DOCX or unsupported format: Add informative placeholder page
+            const docxPage = masterPdf.addPage([600, 400]);
+            docxPage.drawText(`DOCX / WORD DOCUMENT: ${order.file_name || filePath}`, {
+              x: 50,
+              y: 250,
+              size: 16,
+              font,
+              color: rgb(0.1, 0.1, 0.1),
+            });
+            const profile: any = Array.isArray(order.profiles) ? order.profiles[0] : order.profiles;
+            docxPage.drawText(`Customer: ${profile?.full_name || 'Student'} (${profile?.phone_number || ''})`, {
+              x: 50,
+              y: 210,
+              size: 12,
+              font,
+              color: rgb(0.3, 0.3, 0.3),
+            });
+            docxPage.drawText(`Note: Word documents (.docx) can be opened and printed separately from phone/laptop.`, {
+              x: 50,
+              y: 170,
+              size: 11,
+              font,
+              color: rgb(0.5, 0.5, 0.5),
+            });
+            mergedFilesCount++;
           }
         } catch (docErr) {
           console.error(`Error merging file ${filePath} for order ${order.id}:`, docErr);
+          // Add fallback page so batch does not fail
+          const fallbackPage = masterPdf.addPage([600, 400]);
+          fallbackPage.drawText(`DOCUMENT PROCESSING NOTICE: ${order.file_name || filePath}`, {
+            x: 50,
+            y: 200,
+            size: 14,
+            font,
+            color: rgb(0.8, 0.1, 0.1),
+          });
+          mergedFilesCount++;
         }
       }
     }
@@ -153,7 +212,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Batch PDF generation error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate batch PDF', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to generate batch PDF', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
