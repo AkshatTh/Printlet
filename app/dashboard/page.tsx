@@ -440,7 +440,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="p-3 bg-amber-100/70 border border-amber-300 text-amber-950 rounded-xl sm:rounded-2xl text-xs font-bold leading-relaxed">
-              ⚠️ <strong>Important Notice:</strong> If you fail to collect your printouts during the designated slots (10:40–10:50 AM or 12:30–1:20 PM) or do not contact <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printout will be delayed to the next working day.
+              ⚠️ <strong>Important Notice:</strong> Pickup location is <strong>Room 607</strong>. If you fail to collect your printouts during the designated slots (10:40–10:50 AM or 12:30–1:20 PM) or do not contact <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printout will be delayed to the next working day.
             </div>
           </div>
 
@@ -485,6 +485,7 @@ export default function DashboardPage() {
                       <span>📍</span>
                       <span>Collection Instructions</span>
                     </p>
+                    <p>• <strong>Pickup Location:</strong> <span className="text-orange-600 font-black text-xs sm:text-sm">Room 607</span></p>
                     <p>• <strong>Daily Pickup Slots:</strong> 10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM</p>
                     <p>• <strong>Contact Email:</strong> <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline">at6710@srmist.edu.in</a></p>
                     <p className="pt-1">
