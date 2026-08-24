@@ -7,8 +7,13 @@ import { calculatePickupTime } from '@/lib/pickup-time';
 const STAPLE_COST = 1; // ₹1 for staple
 
 async function countPDFPages(buffer: ArrayBuffer): Promise<number> {
-  const pdfDoc = await PDFDocument.load(buffer);
-  return pdfDoc.getPageCount();
+  try {
+    const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    return Math.max(1, pdfDoc.getPageCount());
+  } catch (e) {
+    console.warn('PDF page count warning, defaulting to 1 page:', e);
+    return 1;
+  }
 }
 
 async function countImagePages(): Promise<number> {
@@ -16,8 +21,12 @@ async function countImagePages(): Promise<number> {
 }
 
 async function countDocxPages(buffer: ArrayBuffer): Promise<number> {
-  const sizeInKB = buffer.byteLength / 1024;
-  return Math.max(1, Math.ceil(sizeInKB / 50));
+  try {
+    const sizeInKB = buffer.byteLength / 1024;
+    return Math.max(1, Math.ceil(sizeInKB / 50));
+  } catch (e) {
+    return 1;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -71,26 +80,14 @@ export async function POST(request: NextRequest) {
 
     // Process each uploaded file
     for (const file of files) {
-      if (!allowedTypes.includes(file.type)) {
-        return NextResponse.json(
-          { error: `Invalid file type for ${file.name}. Only PDF, DOCX, PNG, and JPG are allowed.` },
-          { status: 400 }
-        );
-      }
-
-      if (file.size > maxSize) {
-        return NextResponse.json(
-          { error: `File ${file.name} exceeds the 50MB size limit.` },
-          { status: 400 }
-        );
-      }
-
       const arrayBuffer = await file.arrayBuffer();
 
       let pageCount = 1;
-      if (file.type === 'application/pdf') {
+      const lowerName = file.name.toLowerCase();
+
+      if (file.type === 'application/pdf' || lowerName.endsWith('.pdf')) {
         pageCount = await countPDFPages(arrayBuffer);
-      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || lowerName.endsWith('.docx')) {
         pageCount = await countDocxPages(arrayBuffer);
       } else {
         pageCount = await countImagePages();
@@ -98,27 +95,41 @@ export async function POST(request: NextRequest) {
 
       totalPageCount += pageCount;
 
-      // Upload file to Supabase Storage using admin service-role client (bypasses RLS limits)
+      // Upload file to Supabase Storage using admin service-role client
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
-      const fileExtension = file.name.split('.').pop();
+      const fileExtension = file.name.split('.').pop() || 'bin';
       const uniqueFilename = `${timestamp}-${randomSuffix}.${fileExtension}`;
 
-      const { error: uploadError } = await supabaseAdmin.storage
+      // Primary bucket: print-jobs
+      let { error: uploadError } = await supabaseAdmin.storage
         .from('print-jobs')
         .upload(uniqueFilename, arrayBuffer, {
-          contentType: file.type,
-          upsert: false
+          contentType: file.type || 'application/octet-stream',
+          upsert: true
         });
+
+      // Fallback bucket: print-files if print-jobs bucket does not exist
+      if (uploadError) {
+        console.warn(`Upload to print-jobs failed (${uploadError.message}), trying print-files...`);
+        const fallbackUpload = await supabaseAdmin.storage
+          .from('print-files')
+          .upload(uniqueFilename, arrayBuffer, {
+            contentType: file.type || 'application/octet-stream',
+            upsert: true
+          });
+        uploadError = fallbackUpload.error;
+      }
 
       if (uploadError) {
         console.error('Upload error for file', file.name, uploadError);
         // Clean up previously uploaded files
         if (uploadedUniqueFiles.length > 0) {
           await supabaseAdmin.storage.from('print-jobs').remove(uploadedUniqueFiles);
+          await supabaseAdmin.storage.from('print-files').remove(uploadedUniqueFiles);
         }
         return NextResponse.json(
-          { error: `Failed to upload file ${file.name}`, details: uploadError.message },
+          { error: `Storage Upload Failed for ${file.name}`, details: uploadError.message },
           { status: 500 }
         );
       }
@@ -136,7 +147,7 @@ export async function POST(request: NextRequest) {
     const fileUrlJoined = uploadedUniqueFiles.join(',');
     const fileNameJoined = originalFileNames.join(', ');
 
-    // Calculate pickup time (next working day)
+    // Calculate pickup time
     const pickupTime = calculatePickupTime();
 
     // Create order record using admin client (resilient to schema migrations)
@@ -182,9 +193,10 @@ export async function POST(request: NextRequest) {
       // Clean up uploaded files
       if (uploadedUniqueFiles.length > 0) {
         await supabaseAdmin.storage.from('print-jobs').remove(uploadedUniqueFiles);
+        await supabaseAdmin.storage.from('print-files').remove(uploadedUniqueFiles);
       }
       return NextResponse.json(
-        { error: 'Failed to create order', details: dbError?.message || 'Database insert failed' },
+        { error: 'Failed to create order in database', details: dbError?.message || 'Database insert failed' },
         { status: 500 }
       );
     }
@@ -211,7 +223,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Upload error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
+      { error: 'Internal server error during upload', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

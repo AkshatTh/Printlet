@@ -197,7 +197,7 @@ export default function DashboardPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Upload failed');
+        throw new Error(`${data.error || 'Upload failed'}${data.details ? ': ' + data.details : ''}`);
       }
 
       setUploadResponse(data);
