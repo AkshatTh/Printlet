@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Script from 'next/script';
 import { createClient } from '@/lib/supabase-client';
-import { getPickupMessage } from '@/lib/pickup-time';
 
 declare global {
   interface Window {
@@ -50,7 +49,7 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [siteStatus, setSiteStatus] = useState<{ isClosed: boolean; message: string } | null>(null);
+  const [siteStatus, setSiteStatus] = useState<{ isClosed: boolean; message: string; mode?: 'BATCH_7PM' | 'NORMAL_247' } | null>(null);
 
   // Multi-file upload states
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -69,7 +68,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Helper to ensure body scrolling is never locked after Razorpay modal closes
   const unlockBodyScroll = () => {
     document.body.style.overflow = 'unset';
     document.body.style.position = 'relative';
@@ -91,13 +89,11 @@ export default function DashboardPage() {
 
     setSessionToken(session.access_token);
 
-    // Fetch site maintenance / outage status
     fetch('/api/site-status')
       .then(res => res.json())
       .then(data => setSiteStatus(data))
       .catch(() => {});
 
-    // Get user profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('full_name, role')
@@ -109,7 +105,6 @@ export default function DashboardPage() {
       setUserRole(profile.role);
     }
 
-    // Get student orders
     const { data: ordersData } = await supabase
       .from('orders')
       .select('*')
@@ -272,7 +267,7 @@ export default function DashboardPage() {
               setSelectedFiles([]);
               setUploadResponse(null);
               setRequiresStaple(false);
-              loadData(); // Refresh order history
+              loadData();
             } else {
               setError('Payment verification failed');
             }
@@ -386,12 +381,23 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* 7 PM Order Cutoff Banner (When Batch Mode is Active) */}
+          {siteStatus?.mode === 'BATCH_7PM' && (
+            <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-orange-300 text-orange-950 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-3 shadow-sm">
+              <span className="text-xl shrink-0">🕒</span>
+              <div>
+                <span className="font-black text-orange-900 uppercase">Daily 7 PM Order Cutoff: </span>
+                Upload & pay before <strong>7:00 PM</strong> for next-morning pickup! Orders placed after 7:00 PM will be included in tomorrow's morning batch.
+              </div>
+            </div>
+          )}
+
           {/* Permanent Collection & Location Card */}
           <div className="bg-white/90 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-orange-200 shadow-lg shadow-orange-500/5 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-orange-800 font-black text-base sm:text-lg">
                 <span>📍</span>
-                <span>Pickup Information & Slots — Room 607</span>
+                <span>Pickup Information & Slots</span>
               </div>
               <a
                 href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM"
@@ -405,8 +411,10 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm font-medium text-stone-700">
               <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200">
-                <p className="text-[10px] sm:text-xs font-black text-stone-500 uppercase">Location</p>
-                <p className="font-extrabold text-stone-900 mt-0.5 text-sm sm:text-base">Room 607</p>
+                <p className="text-[10px] sm:text-xs font-black text-stone-500 uppercase">Order Cutoff</p>
+                <p className="font-extrabold text-stone-900 mt-0.5 text-sm sm:text-base">
+                  {siteStatus?.mode === 'BATCH_7PM' ? 'Everyday 7:00 PM' : '24/7 Night Uploads'}
+                </p>
               </div>
 
               <div className="bg-orange-50 p-3.5 rounded-2xl border border-orange-200">
@@ -425,7 +433,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="p-3 bg-amber-100/70 border border-amber-300 text-amber-950 rounded-xl sm:rounded-2xl text-xs font-bold leading-relaxed">
-              ⚠️ <strong>Important Notice:</strong> If you fail to collect your printouts during the designated slots (10:40–10:50 AM or 12:30–1:20 PM in Room 607) or do not contact <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printout will be delayed to the next working day.
+              ⚠️ <strong>Important Notice:</strong> If you fail to collect your printouts during the designated slots (10:40–10:50 AM or 12:30–1:20 PM) or do not contact <a href="mailto:at6710@srmist.edu.in" className="underline">at6710@srmist.edu.in</a>, pickup of your printout will be delayed to the next working day.
             </div>
           </div>
 
@@ -447,7 +455,7 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-2xl sm:text-3xl font-black text-stone-900">Payment Successful & Order Placed!</h2>
                   <p className="text-stone-600 font-bold text-xs sm:text-sm mt-1">
-                    Your Black & White document has been sent directly to the local print queue.
+                    Your Black & White document has been sent to the batch print queue.
                   </p>
                 </div>
 
@@ -468,10 +476,9 @@ export default function DashboardPage() {
                   <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-bold text-stone-800 space-y-1.5">
                     <p className="text-emerald-800 text-xs sm:text-sm font-black flex items-center gap-1.5">
                       <span>📍</span>
-                      <span>Collection Instructions (Room 607)</span>
+                      <span>Collection Instructions</span>
                     </p>
-                    <p>• <strong>Pickup Location:</strong> Room 607</p>
-                    <p>• <strong>Daily Slots:</strong> 10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM</p>
+                    <p>• <strong>Daily Pickup Slots:</strong> 10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM</p>
                     <p>• <strong>Contact Email:</strong> <a href="mailto:at6710@srmist.edu.in" className="text-orange-600 underline">at6710@srmist.edu.in</a></p>
                     <p className="pt-1">
                       💬 <a href="https://chat.whatsapp.com/IpaB1N8HSgyCs2UXdnv2AM" target="_blank" rel="noopener noreferrer" className="text-emerald-700 underline font-black">Join WhatsApp Community Group for Live Order Updates</a>
@@ -507,7 +514,6 @@ export default function DashboardPage() {
                   <span>📂 Upload Documents (B&W Only)</span>
                 </h2>
 
-                {/* Touch-Friendly Drag and Drop Zone */}
                 <div
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
@@ -540,7 +546,6 @@ export default function DashboardPage() {
                   </label>
                 </div>
 
-                {/* Selected Files List */}
                 {selectedFiles.length > 0 && (
                   <div className="space-y-3 bg-orange-50/60 p-3.5 sm:p-4 rounded-2xl border border-orange-200">
                     <p className="font-extrabold text-xs sm:text-sm text-stone-800">
@@ -565,7 +570,6 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Staple Checkbox */}
                 <div className="flex items-center gap-3 bg-amber-100/60 p-3.5 sm:p-4 rounded-2xl border border-amber-200">
                   <input
                     type="checkbox"
@@ -588,7 +592,6 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              /* Calculated Price Breakdown & Payment Button */
               <div className="space-y-5 sm:space-y-6 bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-rose-500/10 p-5 sm:p-8 rounded-2xl sm:rounded-3xl border border-orange-200">
                 <h3 className="text-lg sm:text-xl font-black text-stone-900">
                   Order Summary (B&W Printout)
@@ -665,7 +668,6 @@ export default function DashboardPage() {
                         </span>
                       </div>
 
-                      {/* Collection Notice */}
                       {ord.pickup_time && (currentStatus === 'PAID' || currentStatus === 'PRINTED') && (
                         <div className="p-3 bg-orange-100 text-orange-900 rounded-xl text-xs font-bold border border-orange-300 flex items-center gap-2">
                           <span className="shrink-0">📍</span>

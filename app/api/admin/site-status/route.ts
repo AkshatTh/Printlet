@@ -36,10 +36,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { isClosed, message } = await request.json();
+    const { isClosed, message, mode } = await request.json();
 
     // Use fault-tolerant setSiteStatusInDB helper
-    const result = await setSiteStatusInDB(Boolean(isClosed), message);
+    const result = await setSiteStatusInDB(Boolean(isClosed), message, mode);
 
     return NextResponse.json(result);
 

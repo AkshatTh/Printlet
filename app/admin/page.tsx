@@ -43,13 +43,15 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  // Site Outage / Closed Maintenance Toggle State
+  // Fulfillment & Outage Settings State
   const [siteIsClosed, setSiteIsClosed] = useState(false);
+  const [fulfillmentMode, setFulfillmentMode] = useState<'BATCH_7PM' | 'NORMAL_247'>('BATCH_7PM');
   const [siteMessage, setSiteMessage] = useState(
     'Printing service is temporarily paused due to maintenance or power outage. Your order can still be uploaded and paid for, but next-day delivery timeline will resume as soon as service reopens.'
   );
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusSuccessMsg, setStatusSuccessMsg] = useState<string | null>(null);
+  const [downloadingBatch, setDownloadingBatch] = useState(false);
 
   // Admin Direct Free Print Upload states
   const [adminFiles, setAdminFiles] = useState<File[]>([]);
@@ -73,12 +75,17 @@ export default function AdminPage() {
       const data = await res.json();
       if (data) {
         setSiteIsClosed(Boolean(data.isClosed));
+        if (data.mode) setFulfillmentMode(data.mode);
         if (data.message) setSiteMessage(data.message);
       }
     } catch (e) {}
   };
 
-  const handleToggleSiteStatus = async (newClosedState: boolean) => {
+  const handleUpdateSiteSettings = async (
+    newClosedState: boolean,
+    newMode: 'BATCH_7PM' | 'NORMAL_247',
+    newMessage?: string
+  ) => {
     if (!sessionToken) return;
     setStatusUpdating(true);
     setStatusSuccessMsg(null);
@@ -91,21 +98,19 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           isClosed: newClosedState,
-          message: siteMessage
+          mode: newMode,
+          message: newMessage || siteMessage
         })
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setSiteIsClosed(data.isClosed);
-        setStatusSuccessMsg(
-          data.isClosed
-            ? 'Site marked as CLOSED (Outage Mode active for all users)'
-            : 'Site marked as OPEN (Normal service active)'
-        );
+        setFulfillmentMode(data.mode);
+        setStatusSuccessMsg('Settings updated successfully!');
         setTimeout(() => setStatusSuccessMsg(null), 3000);
       }
     } catch (e) {
-      console.error('Failed to toggle site status:', e);
+      console.error('Failed to update site settings:', e);
     } finally {
       setStatusUpdating(false);
     }
@@ -123,7 +128,6 @@ export default function AdminPage() {
 
       setSessionToken(session.access_token);
 
-      // Fetch admin orders & financial statistics via secure service-role API endpoint
       const response = await fetch('/api/admin/orders', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -158,6 +162,33 @@ export default function AdminPage() {
     }
   };
 
+  const handleDownloadBatchPdf = async () => {
+    if (!sessionToken) return;
+    setDownloadingBatch(true);
+    try {
+      const res = await fetch('/api/admin/batch-pdf', {
+        headers: { 'Authorization': `Bearer ${sessionToken}` }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Failed to download batch PDF');
+        return;
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Printlet_Batch_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      alert('Error downloading batch PDF');
+    } finally {
+      setDownloadingBatch(false);
+    }
+  };
+
   const markAsDelivered = async (orderId: string) => {
     if (!sessionToken) return;
 
@@ -174,7 +205,6 @@ export default function AdminPage() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Re-fetch all orders & stats from backend to update active & delivered queues cleanly
         await checkAdminAndLoadOrders();
       } else {
         alert(data.error || 'Failed to mark order as delivered');
@@ -242,10 +272,10 @@ export default function AdminPage() {
         throw new Error(data.error || 'Admin upload failed');
       }
 
-      setAdminMsg(`Success! ${data.fileCount} file(s) (${data.pageCount} pages) sent to local printer queue.`);
+      setAdminMsg(`Success! ${data.fileCount} file(s) (${data.pageCount} pages) sent to queue.`);
       setAdminFiles([]);
       setAdminStaple(false);
-      checkAdminAndLoadOrders(); // Refresh table
+      checkAdminAndLoadOrders();
     } catch (err) {
       setAdminErr(err instanceof Error ? err.message : 'Admin upload failed');
     } finally {
@@ -264,6 +294,19 @@ export default function AdminPage() {
 
     return `https://wa.me/${formattedPhone}?text=${text}`;
   };
+
+  // Compute Page Mapping Ranges for Batch Printing Matrix
+  let currentPageOffset = 1;
+  const pageMappings = orders.map((order) => {
+    const startPage = currentPageOffset;
+    const endPage = currentPageOffset + (order.page_count || 1) - 1;
+    currentPageOffset = endPage + 1;
+    return {
+      order,
+      startPage,
+      endPage,
+    };
+  });
 
   if (loading) {
     return (
@@ -323,43 +366,46 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Site Status / Service Outage Control Panel */}
+        {/* Mode Switcher & Service Control Panel */}
         <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div>
               <h2 className="text-lg sm:text-xl font-black text-stone-900 flex flex-wrap items-center gap-2">
-                <span>⚙️ Service Status & Outage Control</span>
+                <span>⚙️ Fulfillment Mode & Service Status</span>
                 <span className={`px-3 py-1 rounded-full text-xs font-black ${
-                  siteIsClosed
+                  fulfillmentMode === 'BATCH_7PM'
                     ? 'bg-amber-200 text-amber-950 border border-amber-300'
                     : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                 }`}>
-                  {siteIsClosed ? '🔴 CLOSED (Outage Mode)' : '🟢 OPEN (Normal Service)'}
+                  {fulfillmentMode === 'BATCH_7PM' ? '📦 7 PM Batch Cutoff Mode (Testing)' : '🖨️ Normal Daemon Mode (24/7)'}
                 </span>
               </h2>
               <p className="text-xs text-stone-600 font-bold mt-1">
-                Toggle site closed status during power/printer outages. Users can still upload & pay, but delivery promise will be paused.
+                Toggle operational mode. In 7 PM Batch Mode, customer banners show orders cutoff at 7 PM for local shop printing.
               </p>
             </div>
 
-            <div className="w-full sm:w-auto">
-              {siteIsClosed ? (
-                <button
-                  onClick={() => handleToggleSiteStatus(false)}
-                  disabled={statusUpdating}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md text-center"
-                >
-                  {statusUpdating ? 'Updating...' : '🟢 Re-Open Service (Normal Mode)'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleToggleSiteStatus(true)}
-                  disabled={statusUpdating}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md text-center"
-                >
-                  {statusUpdating ? 'Updating...' : '🔴 Mark Site as Closed (Outage Mode)'}
-                </button>
-              )}
+            {/* Toggle Mode Buttons */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
+              <button
+                onClick={() => handleUpdateSiteSettings(siteIsClosed, fulfillmentMode === 'BATCH_7PM' ? 'NORMAL_247' : 'BATCH_7PM')}
+                disabled={statusUpdating}
+                className="w-full sm:w-auto px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs sm:text-sm rounded-xl transition-all shadow-md text-center"
+              >
+                {statusUpdating ? 'Updating...' : `Switch to ${fulfillmentMode === 'BATCH_7PM' ? '🖨️ Normal 24/7 Mode' : '📦 7 PM Batch Mode'}`}
+              </button>
+
+              <button
+                onClick={() => handleUpdateSiteSettings(!siteIsClosed, fulfillmentMode)}
+                disabled={statusUpdating}
+                className={`w-full sm:w-auto px-4 py-2.5 font-black text-xs sm:text-sm rounded-xl transition-all shadow-md text-center ${
+                  siteIsClosed
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-amber-600 hover:bg-amber-700 text-white'
+                }`}
+              >
+                {siteIsClosed ? '🟢 Re-Open Service' : '🔴 Outage / Close Site'}
+              </button>
             </div>
           </div>
 
@@ -368,18 +414,65 @@ export default function AdminPage() {
               {statusSuccessMsg}
             </div>
           )}
+        </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-extrabold text-stone-700 uppercase tracking-wider">
-              Outage Notice Message displayed to Students:
-            </label>
-            <textarea
-              value={siteMessage}
-              onChange={(e) => setSiteMessage(e.target.value)}
-              rows={2}
-              className="w-full p-3 bg-stone-50 border border-orange-200 rounded-xl text-xs sm:text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:outline-none"
-            />
+        {/* Mobile Batch PDF Download & Zero-Cost Page Breakdown Box */}
+        <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-rose-500/10 p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-orange-300 space-y-4 shadow-lg">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h2 className="text-xl font-black text-stone-900 flex items-center gap-2">
+                <span>📦 Today's 7 PM Batch PDF Compiler</span>
+              </h2>
+              <p className="text-xs text-stone-600 font-bold mt-0.5">
+                Compiles all active paid documents into one master PDF for mobile download. No extra cover pages added!
+              </p>
+            </div>
+
+            <button
+              onClick={handleDownloadBatchPdf}
+              disabled={downloadingBatch || orders.length === 0}
+              className="w-full sm:w-auto px-6 py-3 font-black text-sm text-white bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 rounded-xl shadow-lg transition-all disabled:opacity-50 text-center shrink-0"
+            >
+              {downloadingBatch ? 'Compiling PDF...' : `📥 Download 7 PM Batch PDF (${orders.length} orders)`}
+            </button>
           </div>
+
+          {/* Zero-Cost Page Mapping Breakdown Matrix */}
+          {pageMappings.length > 0 && (
+            <div className="bg-white/90 rounded-2xl p-4 border border-orange-200 space-y-3">
+              <p className="text-xs font-black text-stone-800 uppercase tracking-wider flex items-center justify-between">
+                <span>📋 Customer PDF Page Breakdown (Zero-Cost Sheet Mapping)</span>
+                <span className="text-orange-600">Total Pages: {currentPageOffset - 1}</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                {pageMappings.map(({ order, startPage, endPage }, idx) => (
+                  <div key={order.id} className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="px-2 py-0.5 bg-orange-600 text-white font-black rounded-md text-[10px]">
+                        Pages {startPage} – {endPage}
+                      </span>
+                      {order.requires_staple ? (
+                        <span className="px-2 py-0.5 bg-amber-200 text-amber-950 font-black rounded-md text-[10px]">
+                          📌 STAPLE
+                        </span>
+                      ) : (
+                        <span className="text-stone-400 font-bold text-[10px]">No Staple</span>
+                      )}
+                    </div>
+                    <p className="font-extrabold text-stone-900 truncate mt-1">
+                      {idx + 1}. {order.profiles?.full_name || 'Customer'}
+                    </p>
+                    <p className="text-[11px] text-orange-700 font-mono font-bold">
+                      {order.profiles?.phone_number || 'No phone'}
+                    </p>
+                    <p className="text-[10px] text-stone-500 font-medium truncate">
+                      {order.file_name} ({order.page_count} pg)
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Financial & Operational Analytics Cards */}
@@ -416,80 +509,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-
-        {/* Direct Admin Free Print Panel */}
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl shadow-orange-500/10 border border-orange-200 space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg sm:text-xl font-black text-stone-900 flex items-center gap-2">
-                <span>⚡ Admin Free Print Panel</span>
-              </h2>
-              <p className="text-xs text-stone-600 font-bold mt-0.5">Upload any document to print instantly on dorm printer without payment</p>
-            </div>
-          </div>
-
-          {adminErr && (
-            <div className="p-3 bg-red-100 text-red-800 rounded-xl text-xs font-bold border border-red-200">
-              {adminErr}
-            </div>
-          )}
-
-          {adminMsg && (
-            <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-200">
-              {adminMsg}
-            </div>
-          )}
-
-          <div
-            onDragEnter={handleAdminDrag}
-            onDragLeave={handleAdminDrag}
-            onDragOver={handleAdminDrag}
-            onDrop={handleAdminDrop}
-            className={`border-2 border-dashed rounded-2xl p-4 text-center transition-all cursor-pointer ${
-              dragActive ? 'border-orange-500 bg-orange-100/70 scale-101' : 'border-orange-300 bg-amber-50/40 hover:border-orange-400'
-            }`}
-          >
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.docx,.png,.jpg,.jpeg"
-              onChange={handleAdminFileSelect}
-              className="hidden"
-              id="admin-file-input"
-            />
-            <label htmlFor="admin-file-input" className="cursor-pointer block">
-              <p className="font-bold text-xs sm:text-sm text-stone-900">Click or Drag Admin Files to Print Immediately</p>
-              <p className="text-xs text-stone-500 mt-1 font-medium">PDF, DOCX, PNG, JPG (Multi-file supported)</p>
-            </label>
-          </div>
-
-          {adminFiles.length > 0 && (
-            <div className="flex justify-between items-center bg-amber-50 p-3 rounded-xl text-xs sm:text-sm border border-amber-200">
-              <span className="font-semibold truncate max-w-xs">{adminFiles.length} file(s) selected: {adminFiles.map(f => f.name).join(', ')}</span>
-              <button onClick={() => setAdminFiles([])} className="text-red-500 font-bold text-xs shrink-0 ml-2">Clear</button>
-            </div>
-          )}
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
-            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold cursor-pointer">
-              <input
-                type="checkbox"
-                checked={adminStaple}
-                onChange={e => setAdminStaple(e.target.checked)}
-                className="w-4 h-4 text-orange-500 rounded accent-orange-500"
-              />
-              Staple Document
-            </label>
-
-            <button
-              onClick={handleAdminUpload}
-              disabled={adminUploading || adminFiles.length === 0}
-              className="w-full sm:w-auto px-6 py-2.5 font-black text-xs sm:text-sm text-white bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 rounded-xl shadow-md hover:scale-105 transition-all disabled:opacity-50 text-center"
-            >
-              {adminUploading ? 'Sending to Queue...' : 'Print Free (Send to Queue) ✨'}
-            </button>
-          </div>
-        </div>
 
         {/* Section 1: Active Campus Delivery Queue Table */}
         <div className="bg-white/90 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-xl shadow-orange-500/10 border border-orange-200 overflow-hidden">

@@ -10,7 +10,7 @@ export default function Home() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [calcPages, setCalcPages] = useState<number>(10);
   const [calcStaple, setCalcStaple] = useState<boolean>(false);
-  const [siteStatus, setSiteStatus] = useState<{ isClosed: boolean; message: string } | null>(null);
+  const [siteStatus, setSiteStatus] = useState<{ isClosed: boolean; message: string; mode?: 'BATCH_7PM' | 'NORMAL_247' } | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -153,6 +153,7 @@ export default function Home() {
         <section className="text-center py-6 sm:py-10 lg:py-16 max-w-4xl mx-auto px-2">
           <div className="inline-flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-1.5 sm:py-2 rounded-full bg-amber-200/80 text-amber-900 text-xs sm:text-sm font-extrabold mb-4 sm:mb-6 border border-amber-300 shadow-sm max-w-full truncate">
             <span>🖨️ Black & White Campus Printing Service</span>
+            {siteStatus?.mode === 'BATCH_7PM' && <span className="bg-orange-600 text-white px-2 py-0.5 rounded-full text-[10px] uppercase font-black">7 PM Cutoff</span>}
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black text-stone-900 tracking-tight leading-tight mb-4 sm:mb-6">
@@ -164,6 +165,7 @@ export default function Home() {
 
           <p className="text-base sm:text-xl text-stone-700 font-medium mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed">
             Upload your documents online, pay via UPI, and collect your <strong>Black & White</strong> printouts from <strong>Room 607</strong> during designated slots (10:40 AM – 10:50 AM or 12:30 PM – 1:20 PM)!
+            {siteStatus?.mode === 'BATCH_7PM' && <span className="block mt-2 text-xs sm:text-sm font-bold text-orange-800 bg-amber-100/80 p-2.5 rounded-xl border border-amber-300">🕒 Order Cutoff: Submit before 7:00 PM today for next-morning pickup!</span>}
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 w-full">
