@@ -138,6 +138,30 @@ export async function POST(request: NextRequest) {
       originalFileNames.push(file.name);
     }
 
+    // Ensure profile record exists in `profiles` table to satisfy orders_user_id_fkey Foreign Key constraint
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      try {
+        const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(userId);
+        const userEmail = authUserData?.user?.email || '';
+        const userPhone = authUserData?.user?.phone || '';
+        await supabaseAdmin.from('profiles').upsert({
+          id: userId,
+          email: userEmail,
+          full_name: userEmail ? userEmail.split('@')[0] : 'Student User',
+          phone_number: userPhone,
+          role: 'STUDENT',
+        });
+      } catch (profErr) {
+        console.warn('Auto profile upsert warning:', profErr);
+      }
+    }
+
     // Calculate total amount (in paise) with tiered pricing based on aggregated page count
     const pricePerPage = getPricePerPage(totalPageCount);
     const baseAmount = totalPageCount * pricePerPage * 100; // Convert to paise
