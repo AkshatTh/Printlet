@@ -31,20 +31,25 @@ async function countDocxPages(buffer: ArrayBuffer): Promise<number> {
 
 export async function POST(request: NextRequest) {
   try {
-    // Enforce mandatory authentication header
+    // 1. Enforce mandatory authentication header
     let userId: string | null = null;
+    let userEmail: string = '';
+    let userPhone: string = '';
+
     const authHeader = request.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-      if (user) {
+      const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
+      if (user && !authErr) {
         userId = user.id;
+        userEmail = user.email || '';
+        userPhone = user.phone || '';
       }
     }
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized. Please sign in to upload documents and place an order.' },
+        { error: 'Session expired or invalid. Please sign out and sign in again.' },
         { status: 401 }
       );
     }
@@ -123,7 +128,6 @@ export async function POST(request: NextRequest) {
 
       if (uploadError) {
         console.error('Upload error for file', file.name, uploadError);
-        // Clean up previously uploaded files
         if (uploadedUniqueFiles.length > 0) {
           await supabaseAdmin.storage.from('print-jobs').remove(uploadedUniqueFiles);
           await supabaseAdmin.storage.from('print-files').remove(uploadedUniqueFiles);
@@ -138,43 +142,30 @@ export async function POST(request: NextRequest) {
       originalFileNames.push(file.name);
     }
 
-    // Ensure profile record exists in `profiles` table to satisfy orders_user_id_fkey Foreign Key constraint
-    const { data: existingProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (!existingProfile) {
-      try {
-        const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(userId);
-        const userEmail = authUserData?.user?.email || '';
-        const userPhone = authUserData?.user?.phone || '';
-        await supabaseAdmin.from('profiles').upsert({
-          id: userId,
-          email: userEmail,
-          full_name: userEmail ? userEmail.split('@')[0] : 'Student User',
-          phone_number: userPhone,
-          role: 'STUDENT',
-        });
-      } catch (profErr) {
-        console.warn('Auto profile upsert warning:', profErr);
-      }
+    // 2. Ensure profile record exists in `profiles` table to satisfy orders_user_id_fkey
+    try {
+      await supabaseAdmin.from('profiles').upsert({
+        id: userId,
+        email: userEmail,
+        full_name: userEmail ? userEmail.split('@')[0] : 'Student User',
+        phone_number: userPhone,
+        role: 'STUDENT',
+      });
+    } catch (profErr) {
+      console.warn('Profile upsert warning:', profErr);
     }
 
-    // Calculate total amount (in paise) with tiered pricing based on aggregated page count
+    // Calculate total amount (in paise)
     const pricePerPage = getPricePerPage(totalPageCount);
-    const baseAmount = totalPageCount * pricePerPage * 100; // Convert to paise
+    const baseAmount = totalPageCount * pricePerPage * 100;
     const stapleAmount = requiresStaple ? STAPLE_COST * 100 : 0;
     const totalAmount = baseAmount + stapleAmount;
 
     const fileUrlJoined = uploadedUniqueFiles.join(',');
     const fileNameJoined = originalFileNames.join(', ');
-
-    // Calculate pickup time
     const pickupTime = calculatePickupTime();
 
-    // Create order record using admin client (resilient to schema migrations)
+    // 3. Insert order with fallback handling if foreign key constraint is triggered
     const fullPayload: Record<string, any> = {
       file_url: fileUrlJoined,
       file_name: fileNameJoined,
@@ -193,7 +184,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    // Fallback if database migration script has not been run yet
+    // Fallback 1: If database migration has not added file_name column
     if (dbError && (dbError.code === 'PGRST204' || dbError.message?.includes('file_name') || dbError.message?.includes('column'))) {
       console.warn('Full schema insert failed, falling back to base schema:', dbError.message);
       const legacyResult = await supabaseAdmin
@@ -203,7 +194,8 @@ export async function POST(request: NextRequest) {
           page_count: totalPageCount,
           requires_staple: requiresStaple,
           total_amount: totalAmount,
-          payment_status: 'PENDING'
+          payment_status: 'PENDING',
+          user_id: userId
         })
         .select()
         .single();
@@ -212,9 +204,31 @@ export async function POST(request: NextRequest) {
       dbError = legacyResult.error;
     }
 
+    // Fallback 2: Handle foreign key constraint error specifically
+    if (dbError && (dbError.code === '23503' || dbError.message?.includes('orders_user_id_fkey') || dbError.message?.includes('foreign key'))) {
+      console.warn('Foreign key constraint failed on user_id, trying insert without user_id:', dbError.message);
+      const noUserPayload = { ...fullPayload };
+      delete noUserPayload.user_id;
+
+      const fallbackNoUser = await supabaseAdmin
+        .from('orders')
+        .insert(noUserPayload)
+        .select()
+        .single();
+
+      if (!fallbackNoUser.error && fallbackNoUser.data) {
+        order = fallbackNoUser.data;
+        dbError = null;
+      } else {
+        return NextResponse.json(
+          { error: 'Session expired or user profile not registered. Please sign out and sign in again.' },
+          { status: 401 }
+        );
+      }
+    }
+
     if (dbError || !order) {
-      console.error('Database error:', dbError);
-      // Clean up uploaded files
+      console.error('Database error creating order:', dbError);
       if (uploadedUniqueFiles.length > 0) {
         await supabaseAdmin.storage.from('print-jobs').remove(uploadedUniqueFiles);
         await supabaseAdmin.storage.from('print-files').remove(uploadedUniqueFiles);
@@ -232,7 +246,7 @@ export async function POST(request: NextRequest) {
       fileNames: fileNameJoined,
       requiresStaple,
       pricePerPage,
-      totalAmount: totalAmount / 100, // Return in rupees
+      totalAmount: totalAmount / 100,
       totalAmountPaise: totalAmount,
       breakdown: {
         fileCount: files.length,

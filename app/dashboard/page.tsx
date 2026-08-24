@@ -201,8 +201,15 @@ export default function DashboardPage() {
       }
 
       setUploadResponse(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      setError(msg);
+      if (msg.includes('Session expired') || msg.includes('sign in again')) {
+        setTimeout(() => {
+          supabase.auth.signOut();
+          router.replace('/auth');
+        }, 2000);
+      }
     } finally {
       setUploading(false);
     }
