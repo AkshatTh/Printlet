@@ -98,7 +98,7 @@ export default function DashboardPage() {
       .from('profiles')
       .select('full_name, role')
       .eq('id', session.user.id)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       setUserName(profile.full_name);

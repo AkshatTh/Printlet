@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { PDFDocument } from 'pdf-lib';
 import { getPricePerPage } from '@/lib/pricing';
 import { calculatePickupTime } from '@/lib/pickup-time';
@@ -98,13 +98,13 @@ export async function POST(request: NextRequest) {
 
       totalPageCount += pageCount;
 
-      // Upload file to Supabase Storage
+      // Upload file to Supabase Storage using admin service-role client (bypasses RLS limits)
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const fileExtension = file.name.split('.').pop();
       const uniqueFilename = `${timestamp}-${randomSuffix}.${fileExtension}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabaseAdmin.storage
         .from('print-jobs')
         .upload(uniqueFilename, arrayBuffer, {
           contentType: file.type,
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         console.error('Upload error for file', file.name, uploadError);
         // Clean up previously uploaded files
         if (uploadedUniqueFiles.length > 0) {
-          await supabase.storage.from('print-jobs').remove(uploadedUniqueFiles);
+          await supabaseAdmin.storage.from('print-jobs').remove(uploadedUniqueFiles);
         }
         return NextResponse.json(
           { error: `Failed to upload file ${file.name}`, details: uploadError.message },
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     const fileUrlJoined = uploadedUniqueFiles.join(',');
     const fileNameJoined = originalFileNames.join(', ');
 
-    // Calculate pickup time (next working day at 12:30 PM)
+    // Calculate pickup time (next working day)
     const pickupTime = calculatePickupTime();
 
     // Create order record using admin client (resilient to schema migrations)
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
       console.error('Database error:', dbError);
       // Clean up uploaded files
       if (uploadedUniqueFiles.length > 0) {
-        await supabase.storage.from('print-jobs').remove(uploadedUniqueFiles);
+        await supabaseAdmin.storage.from('print-jobs').remove(uploadedUniqueFiles);
       }
       return NextResponse.json(
         { error: 'Failed to create order', details: dbError?.message || 'Database insert failed' },
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Upload error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

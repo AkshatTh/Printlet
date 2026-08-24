@@ -36,12 +36,19 @@ export default function AuthPage() {
           .from('profiles')
           .select('*')
           .eq('id', data.user?.id)
-          .single();
+          .maybeSingle();
 
         if (!profile) {
-          // Profile doesn't exist, logout and show error
-          await supabase.auth.signOut();
-          throw new Error('Profile not found. Please sign up first.');
+          // Profile doesn't exist, create default student profile
+          await supabase.from('profiles').insert([
+            {
+              id: data.user.id,
+              email: email,
+              full_name: fullName || email.split('@')[0],
+              phone_number: phoneNumber || '',
+              role: 'STUDENT',
+            },
+          ]);
         }
 
         router.replace('/dashboard');
@@ -56,7 +63,12 @@ export default function AuthPage() {
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          if (error.message?.includes('already registered')) {
+            throw new Error('This email is already registered. Please click "Sign In" below to log in.');
+          }
+          throw error;
+        }
 
         if (data.user) {
           // Check if profile already exists (e.g. created by triggers)
@@ -64,24 +76,20 @@ export default function AuthPage() {
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
-            .single();
+            .maybeSingle();
 
           if (existingProfile) {
             // Profile exists, update it with name and phone
-            const { error: updateError } = await supabase
+            await supabase
               .from('profiles')
               .update({
                 full_name: fullName,
                 phone_number: phoneNumber,
               })
               .eq('id', data.user.id);
-
-            if (updateError) {
-              console.error('Error updating profile:', updateError);
-            }
           } else {
             // Profile doesn't exist, create it
-            const { error: profileError } = await supabase
+            await supabase
               .from('profiles')
               .insert([
                 {
@@ -92,10 +100,6 @@ export default function AuthPage() {
                   role: 'STUDENT',
                 },
               ]);
-
-            if (profileError) {
-              console.error('Error creating profile:', profileError);
-            }
           }
 
           router.replace('/dashboard');
@@ -105,7 +109,7 @@ export default function AuthPage() {
       console.error('Auth error:', err);
       let msg = err?.message || 'Authentication failed';
       if (msg.includes('rate limit')) {
-        msg = 'Supabase email rate limit exceeded. Disable "Confirm email" in Supabase Auth -> Providers -> Email, or create user directly in Supabase Dashboard.';
+        msg = 'Supabase email rate limit exceeded. Try again in a few moments or log in directly.';
       }
       setError(msg);
     } finally {

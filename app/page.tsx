@@ -20,7 +20,7 @@ export default function Home() {
         .from('profiles')
         .select('role')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       if (profile) {
         setUserRole(profile.role);
       }
