@@ -1,5 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { PDFDocument } from 'pdf-lib';
+
+async function recalculatePdfPageCount(filePath: string): Promise<number | null> {
+  try {
+    let cleanPath = filePath.split(',')[0].trim();
+    if (cleanPath.includes('/print-jobs/')) cleanPath = cleanPath.split('/print-jobs/').pop() || cleanPath;
+    if (cleanPath.includes('/print-files/')) cleanPath = cleanPath.split('/print-files/').pop() || cleanPath;
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) cleanPath = cleanPath.split('/').pop() || cleanPath;
+
+    let { data: fileBlob } = await supabaseAdmin.storage.from('print-jobs').download(cleanPath);
+    if (!fileBlob) {
+      const fallback = await supabaseAdmin.storage.from('print-files').download(cleanPath);
+      fileBlob = fallback.data;
+    }
+
+    if (!fileBlob) return null;
+
+    const buffer = await fileBlob.arrayBuffer();
+    const uint8 = new Uint8Array(buffer);
+
+    try {
+      const pdfDoc = await PDFDocument.load(uint8, { ignoreEncryption: true });
+      const count = pdfDoc.getPageCount();
+      if (count > 0) return count;
+    } catch {
+      const text = new TextDecoder('latin1').decode(uint8);
+      const matches = text.match(/\/Type\s*\/Page\b/g);
+      if (matches && matches.length > 0) return matches.length;
+    }
+  } catch (e) {
+    console.warn('Page recount error for', filePath, e);
+  }
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +70,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 3. Fetch ALL orders to compute accurate metrics and separate queues
+    // 3. Fetch ALL orders
     const { data: ordersData, error: ordersError } = await supabaseAdmin
       .from('orders')
       .select('*')
@@ -51,6 +85,19 @@ export async function GET(request: NextRequest) {
     }
 
     let allOrders = ordersData || [];
+
+    // Recalculate page counts dynamically if legacy order recorded page_count: 1 for a PDF
+    for (const o of allOrders) {
+      const fileNameStr = (o.file_name || o.file_url || '').toLowerCase();
+      if ((o.page_count === 1 || !o.page_count) && (fileNameStr.includes('.pdf') || fileNameStr.includes('coursera') || fileNameStr.includes('akshat'))) {
+        const actualPages = await recalculatePdfPageCount(o.file_url || o.file_name);
+        if (actualPages && actualPages > o.page_count) {
+          o.page_count = actualPages;
+          // Asynchronously update database record so recount persists
+          supabaseAdmin.from('orders').update({ page_count: actualPages }).eq('id', o.id).then(() => {});
+        }
+      }
+    }
 
     // Filter revenue-generating orders (PAID, PRINTED, DELIVERED)
     const completedOrders = allOrders.filter(
@@ -74,15 +121,15 @@ export async function GET(request: NextRequest) {
       return orderDate >= tenDaysAgo;
     });
 
-    // Financial Metrics Calculation across ALL paid/delivered orders
+    // Financial Metrics Calculation
     const totalPaise = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
     const grossRevenueRupees = totalPaise / 100;
     const totalPagesPrinted = completedOrders.reduce((sum, o) => sum + (o.page_count || 0), 0);
-    const razorpayFeeRupees = grossRevenueRupees * 0.02; // 2% Razorpay fee
-    const paperPrintingCostRupees = totalPagesPrinted * 1.00; // ₹1 per page print cost
+    const razorpayFeeRupees = grossRevenueRupees * 0.02;
+    const paperPrintingCostRupees = totalPagesPrinted * 1.00;
     const netProfitRupees = Math.max(0, grossRevenueRupees - (razorpayFeeRupees + paperPrintingCostRupees));
 
-    // 4. Fetch profiles & Auth Users for user_ids across active & delivered orders
+    // 4. Resolve Customer Names & Phone Numbers
     const allUserIds = Array.from(new Set([
       ...activeDeliveryOrders.map(o => o.user_id),
       ...deliveredLast10DaysOrders.map(o => o.user_id)
@@ -91,7 +138,7 @@ export async function GET(request: NextRequest) {
     let profilesMap: Record<string, { full_name: string; phone_number: string }> = {};
 
     if (allUserIds.length > 0) {
-      // Step A: Load from profiles table
+      // Step A: Read profiles table
       const { data: profilesData } = await supabaseAdmin
         .from('profiles')
         .select('id, full_name, phone_number, email')
@@ -100,25 +147,31 @@ export async function GET(request: NextRequest) {
       if (profilesData) {
         profilesData.forEach(p => {
           profilesMap[p.id] = {
-            full_name: p.full_name || '',
-            phone_number: p.phone_number || '',
+            full_name: p.full_name?.trim() || '',
+            phone_number: p.phone_number?.trim() || '',
           };
         });
       }
 
-      // Step B: Fallback to Supabase Auth admin user metadata for any missing profile details
+      // Step B: Fallback to Supabase Auth admin user list for any missing names/phones
       try {
         const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
         if (authUsers && authUsers.users) {
           authUsers.users.forEach(u => {
             const meta = u.user_metadata || {};
-            const existing = profilesMap[u.id];
-            const name = (existing && existing.full_name) ? existing.full_name : (meta.full_name || (u.email ? u.email.split('@')[0] : 'Student User'));
-            const phone = (existing && existing.phone_number) ? existing.phone_number : (meta.phone_number || u.phone || 'No Phone');
+            const existing = profilesMap[u.id] || { full_name: '', phone_number: '' };
+            
+            const resolvedName = (existing.full_name && existing.full_name !== 'Student User')
+              ? existing.full_name
+              : (meta.full_name || meta.name || (u.email ? u.email.split('@')[0] : 'Student User'));
+
+            const resolvedPhone = (existing.phone_number && existing.phone_number !== 'No Phone' && existing.phone_number.trim() !== '')
+              ? existing.phone_number
+              : (meta.phone_number || meta.phone || u.phone || u.email || 'No Phone');
 
             profilesMap[u.id] = {
-              full_name: name,
-              phone_number: phone
+              full_name: resolvedName,
+              phone_number: resolvedPhone
             };
           });
         }
@@ -133,9 +186,9 @@ export async function GET(request: NextRequest) {
       return {
         id: order.id,
         file_name: order.file_name || order.file_url,
-        page_count: order.page_count,
-        total_amount: order.total_amount, // Amount in paise
-        amount_rupees: (order.total_amount / 100).toFixed(2), // Formatted in Rupees
+        page_count: order.page_count || 1,
+        total_amount: order.total_amount,
+        amount_rupees: ((order.total_amount || 0) / 100).toFixed(2),
         status: order.status || order.payment_status || 'PAID',
         pickup_time: order.pickup_time || order.created_at,
         created_at: order.created_at,
