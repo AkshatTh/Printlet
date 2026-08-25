@@ -61,6 +61,12 @@ export default function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName,
+              phone_number: phoneNumber,
+            }
+          }
         });
 
         if (error) {
@@ -71,36 +77,17 @@ export default function AuthPage() {
         }
 
         if (data.user) {
-          // Check if profile already exists (e.g. created by triggers)
-          const { data: existingProfile } = await supabase
+          // Upsert profile record
+          await supabase
             .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .maybeSingle();
-
-          if (existingProfile) {
-            // Profile exists, update it with name and phone
-            await supabase
-              .from('profiles')
-              .update({
-                full_name: fullName,
-                phone_number: phoneNumber,
-              })
-              .eq('id', data.user.id);
-          } else {
-            // Profile doesn't exist, create it
-            await supabase
-              .from('profiles')
-              .insert([
-                {
-                  id: data.user.id,
-                  email: email,
-                  full_name: fullName,
-                  phone_number: phoneNumber,
-                  role: 'STUDENT',
-                },
-              ]);
-          }
+            .upsert({
+              id: data.user.id,
+              email: email,
+              full_name: fullName,
+              phone_number: phoneNumber,
+              role: 'STUDENT',
+              updated_at: new Date().toISOString()
+            });
 
           router.replace('/dashboard');
         }

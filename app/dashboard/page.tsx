@@ -105,14 +105,28 @@ export default function DashboardPage() {
       setUserRole(profile.role);
     }
 
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
-
-    if (ordersData) {
-      setOrders(ordersData);
+    try {
+      const res = await fetch('/api/orders', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` }
+      });
+      const data = await res.json();
+      if (data.orders) {
+        setOrders(data.orders);
+      } else {
+        const { data: ordersData } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false });
+        if (ordersData) setOrders(ordersData);
+      }
+    } catch {
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+      if (ordersData) setOrders(ordersData);
     }
 
     setLoading(false);

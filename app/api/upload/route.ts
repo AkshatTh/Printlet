@@ -7,13 +7,33 @@ import { calculatePickupTime } from '@/lib/pickup-time';
 const STAPLE_COST = 1; // ₹1 for staple
 
 async function countPDFPages(buffer: ArrayBuffer): Promise<number> {
+  const uint8 = new Uint8Array(buffer);
+  
+  // Method 1: pdf-lib Document parsing
   try {
-    const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-    return Math.max(1, pdfDoc.getPageCount());
+    const pdfDoc = await PDFDocument.load(uint8, { ignoreEncryption: true });
+    const count = pdfDoc.getPageCount();
+    if (count > 0) {
+      console.log(`PDF page count calculated via pdf-lib: ${count} pages`);
+      return count;
+    }
   } catch (e) {
-    console.warn('PDF page count warning, defaulting to 1 page:', e);
-    return 1;
+    console.warn('pdf-lib page count warning, using regex fallback:', e);
   }
+
+  // Method 2: High-speed Binary Regex fallback for PDF pages (/Type /Page)
+  try {
+    const text = new TextDecoder('latin1').decode(uint8);
+    const matches = text.match(/\/Type\s*\/Page\b/g);
+    if (matches && matches.length > 0) {
+      console.log(`PDF page count calculated via regex fallback: ${matches.length} pages`);
+      return matches.length;
+    }
+  } catch (err) {
+    console.warn('Regex page count failed:', err);
+  }
+
+  return 1;
 }
 
 async function countImagePages(): Promise<number> {
@@ -43,7 +63,7 @@ export async function POST(request: NextRequest) {
       if (user && !authErr) {
         userId = user.id;
         userEmail = user.email || '';
-        userPhone = user.phone || '';
+        userPhone = user.phone || user.user_metadata?.phone_number || '';
       }
     }
 
@@ -70,13 +90,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/png',
-      'image/jpeg'
-    ];
-
     const maxSize = 50 * 1024 * 1024; // 50MB per file
 
     let totalPageCount = 0;
@@ -86,11 +99,14 @@ export async function POST(request: NextRequest) {
     // Process each uploaded file
     for (const file of files) {
       const arrayBuffer = await file.arrayBuffer();
-
-      let pageCount = 1;
+      const uint8 = new Uint8Array(arrayBuffer);
+      
+      // Magic bytes check for PDF (%PDF)
+      const isPdfMagic = uint8.length >= 4 && uint8[0] === 0x25 && uint8[1] === 0x50 && uint8[2] === 0x44 && uint8[3] === 0x46;
       const lowerName = file.name.toLowerCase();
 
-      if (file.type === 'application/pdf' || lowerName.endsWith('.pdf')) {
+      let pageCount = 1;
+      if (isPdfMagic || file.type === 'application/pdf' || lowerName.endsWith('.pdf')) {
         pageCount = await countPDFPages(arrayBuffer);
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || lowerName.endsWith('.docx')) {
         pageCount = await countDocxPages(arrayBuffer);
@@ -114,7 +130,7 @@ export async function POST(request: NextRequest) {
           upsert: true
         });
 
-      // Fallback bucket: print-files if print-jobs bucket does not exist
+      // Fallback bucket: print-files if print-jobs bucket fails
       if (uploadError) {
         console.warn(`Upload to print-jobs failed (${uploadError.message}), trying print-files...`);
         const fallbackUpload = await supabaseAdmin.storage
@@ -142,14 +158,22 @@ export async function POST(request: NextRequest) {
       originalFileNames.push(file.name);
     }
 
-    // 2. Ensure profile record exists in `profiles` table to satisfy orders_user_id_fkey
+    // 2. Auto-provision profile record in `profiles` table to guarantee Foreign Key relation
     try {
+      const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const userObj = authUserData?.user;
+      const meta = userObj?.user_metadata || {};
+      userEmail = userObj?.email || userEmail;
+      userPhone = meta.phone_number || userObj?.phone || userPhone;
+      const fullName = meta.full_name || (userEmail ? userEmail.split('@')[0] : 'Student User');
+
       await supabaseAdmin.from('profiles').upsert({
         id: userId,
         email: userEmail,
-        full_name: userEmail ? userEmail.split('@')[0] : 'Student User',
+        full_name: fullName,
         phone_number: userPhone,
         role: 'STUDENT',
+        updated_at: new Date().toISOString()
       });
     } catch (profErr) {
       console.warn('Profile upsert warning:', profErr);
@@ -165,7 +189,7 @@ export async function POST(request: NextRequest) {
     const fileNameJoined = originalFileNames.join(', ');
     const pickupTime = calculatePickupTime();
 
-    // 3. Insert order with fallback handling if foreign key constraint is triggered
+    // 3. Create order record with user_id attached
     const fullPayload: Record<string, any> = {
       file_url: fileUrlJoined,
       file_name: fileNameJoined,
@@ -184,7 +208,7 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    // Fallback 1: If database migration has not added file_name column
+    // Fallback if database migration has not added file_name column
     if (dbError && (dbError.code === 'PGRST204' || dbError.message?.includes('file_name') || dbError.message?.includes('column'))) {
       console.warn('Full schema insert failed, falling back to base schema:', dbError.message);
       const legacyResult = await supabaseAdmin
@@ -202,29 +226,6 @@ export async function POST(request: NextRequest) {
 
       order = legacyResult.data;
       dbError = legacyResult.error;
-    }
-
-    // Fallback 2: Handle foreign key constraint error specifically
-    if (dbError && (dbError.code === '23503' || dbError.message?.includes('orders_user_id_fkey') || dbError.message?.includes('foreign key'))) {
-      console.warn('Foreign key constraint failed on user_id, trying insert without user_id:', dbError.message);
-      const noUserPayload = { ...fullPayload };
-      delete noUserPayload.user_id;
-
-      const fallbackNoUser = await supabaseAdmin
-        .from('orders')
-        .insert(noUserPayload)
-        .select()
-        .single();
-
-      if (!fallbackNoUser.error && fallbackNoUser.data) {
-        order = fallbackNoUser.data;
-        dbError = null;
-      } else {
-        return NextResponse.json(
-          { error: 'Session expired or user profile not registered. Please sign out and sign in again.' },
-          { status: 401 }
-        );
-      }
     }
 
     if (dbError || !order) {

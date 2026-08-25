@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     const paperPrintingCostRupees = totalPagesPrinted * 1.00; // ₹1 per page print cost
     const netProfitRupees = Math.max(0, grossRevenueRupees - (razorpayFeeRupees + paperPrintingCostRupees));
 
-    // 4. Fetch profiles for user_ids across active & delivered orders
+    // 4. Fetch profiles & Auth Users for user_ids across active & delivered orders
     const allUserIds = Array.from(new Set([
       ...activeDeliveryOrders.map(o => o.user_id),
       ...deliveredLast10DaysOrders.map(o => o.user_id)
@@ -91,18 +91,39 @@ export async function GET(request: NextRequest) {
     let profilesMap: Record<string, { full_name: string; phone_number: string }> = {};
 
     if (allUserIds.length > 0) {
+      // Step A: Load from profiles table
       const { data: profilesData } = await supabaseAdmin
         .from('profiles')
-        .select('id, full_name, phone_number')
+        .select('id, full_name, phone_number, email')
         .in('id', allUserIds);
 
       if (profilesData) {
         profilesData.forEach(p => {
           profilesMap[p.id] = {
-            full_name: p.full_name,
-            phone_number: p.phone_number,
+            full_name: p.full_name || '',
+            phone_number: p.phone_number || '',
           };
         });
+      }
+
+      // Step B: Fallback to Supabase Auth admin user metadata for any missing profile details
+      try {
+        const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+        if (authUsers && authUsers.users) {
+          authUsers.users.forEach(u => {
+            const meta = u.user_metadata || {};
+            const existing = profilesMap[u.id];
+            const name = (existing && existing.full_name) ? existing.full_name : (meta.full_name || (u.email ? u.email.split('@')[0] : 'Student User'));
+            const phone = (existing && existing.phone_number) ? existing.phone_number : (meta.phone_number || u.phone || 'No Phone');
+
+            profilesMap[u.id] = {
+              full_name: name,
+              phone_number: phone
+            };
+          });
+        }
+      } catch (authErr) {
+        console.warn('Auth admin listUsers fallback warning:', authErr);
       }
     }
 
@@ -122,9 +143,12 @@ export async function GET(request: NextRequest) {
         requires_staple: order.requires_staple,
         user_id: order.user_id,
         profiles: profile ? {
-          full_name: profile.full_name,
-          phone_number: profile.phone_number
-        } : null
+          full_name: profile.full_name || 'Student User',
+          phone_number: profile.phone_number || 'No Phone'
+        } : {
+          full_name: 'Student User',
+          phone_number: 'No Phone'
+        }
       };
     };
 
@@ -151,7 +175,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Admin orders API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
