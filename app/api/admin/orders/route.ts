@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
       // Step A: Read profiles table
       const { data: profilesData } = await supabaseAdmin
         .from('profiles')
-        .select('id, full_name, phone_number, email')
+        .select('id, full_name, phone_number')
         .in('id', allUserIds);
 
       if (profilesData) {

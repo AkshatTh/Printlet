@@ -3,7 +3,7 @@
 -- Run this script in your Supabase SQL Editor (https://supabase.com/dashboard)
 -- =========================================================================
 
--- 1. Ensure public.profiles table exists with proper schema
+-- 1. Ensure public.profiles table exists and add any missing columns cleanly
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT,
@@ -13,6 +13,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'STUDENT';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
 -- 2. Backfill profiles for all existing Auth users with full_name & phone_number
 INSERT INTO public.profiles (id, email, full_name, phone_number, role)
@@ -71,11 +77,6 @@ CREATE POLICY "Public profiles read policy" ON public.profiles FOR SELECT USING 
 
 DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
 CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Admins manage all profiles" ON public.profiles;
-CREATE POLICY "Admins manage all profiles" ON public.profiles FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'ADMIN')
-);
 
 GRANT ALL ON public.profiles TO service_role;
 GRANT ALL ON public.profiles TO postgres;
