@@ -165,9 +165,10 @@ export async function GET(request: NextRequest) {
               ? existing.full_name
               : (meta.full_name || meta.name || (u.email ? u.email.split('@')[0] : 'Student User'));
 
+            const rawPhone = meta.phone_number || meta.phone || u.phone || '';
             const resolvedPhone = (existing.phone_number && existing.phone_number !== 'No Phone' && existing.phone_number.trim() !== '')
               ? existing.phone_number
-              : (meta.phone_number || meta.phone || u.phone || u.email || 'No Phone');
+              : (rawPhone ? String(rawPhone) : 'No Phone');
 
             profilesMap[u.id] = {
               full_name: resolvedName,
